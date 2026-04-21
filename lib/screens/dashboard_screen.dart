@@ -1,0 +1,557 @@
+// lib/screens/dashboard_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
+import '../models/ticket_model.dart';
+import '../theme/app_theme.dart';
+import '../widgets/shimmer_card.dart';
+import '../widgets/ticket_card.dart';
+import 'ticket_detail_screen.dart';
+import 'create_ticket_screen.dart';
+
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Simulate loading
+    Future.delayed(const Duration(milliseconds: 1500),
+        () => mounted ? setState(() => _loading = false) : null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final user = provider.currentUser;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (user == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.login_rounded, size: 64, color: AppColors.primary),
+              const SizedBox(height: 16),
+              const Text('Please login to continue', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                child: const Text('Go to Login'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          setState(() => _loading = true);
+          await Future.delayed(const Duration(milliseconds: 1200));
+          if (mounted) setState(() => _loading = false);
+        },
+        child: CustomScrollView(
+          slivers: [
+            // Header
+            SliverToBoxAdapter(
+              child: Container(
+                padding: EdgeInsets.fromLTRB(
+                    20, MediaQuery.of(context).padding.top + 20, 20, 24),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Selamat Datang 👋',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                user.name,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Avatar
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.4),
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(Icons.person_rounded,
+                              color: Colors.white, size: 28),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    // Role badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: Colors.white.withOpacity(0.3), width: 1),
+                      ),
+                      child: Text(
+                        getRoleLabel(user.role).toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn(duration: 400.ms),
+            ),
+
+            // Stats section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                child: Text(
+                  'Ringkasan Tiket',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color:
+                        isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: _loading
+                  ? _buildShimmerStats()
+                  : _buildStatsGrid(provider, isDark),
+            ),
+
+            // Quick actions (User only)
+            if (user.role == UserRole.user) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                  child: Text(
+                    'Aksi Cepat',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: isDark
+                          ? Colors.white
+                          : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _QuickActionCard(
+                          icon: Icons.add_circle_outline_rounded,
+                          label: 'Buat Tiket',
+                          color: AppColors.primary,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const CreateTicketScreen()),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _QuickActionCard(
+                          icon: Icons.list_alt_rounded,
+                          label: 'Lihat Tiket',
+                          color: const Color(0xFF00838F),
+                          onTap: () {},
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _QuickActionCard(
+                          icon: Icons.track_changes_rounded,
+                          label: 'Tracking',
+                          color: const Color(0xFFFF9800),
+                          onTap: () {},
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+            // Recent tickets
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Tiket Terbaru',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark
+                            ? Colors.white
+                            : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {},
+                      child: const Text('Lihat Semua',
+                          style: TextStyle(fontSize: 13)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            if (_loading)
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (_, __) => const ShimmerCard(),
+                  childCount: 3,
+                ),
+              )
+            else if (provider.userTickets.isEmpty)
+              SliverToBoxAdapter(
+                child: _EmptyState(
+                  isUser: user.role == UserRole.user,
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final tickets = provider.userTickets.take(4).toList();
+                    if (index >= tickets.length) return null;
+                    return TicketCard(
+                      ticket: tickets[index],
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TicketDetailScreen(ticketId: tickets[index].id),
+                        ),
+                      ),
+                    )
+                        .animate()
+                        .fadeIn(
+                            delay: Duration(milliseconds: 100 * index),
+                            duration: 400.ms)
+                        .slideX(begin: 0.05);
+                  },
+                  childCount:
+                      provider.userTickets.take(4).length,
+                ),
+              ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerStats() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.5,
+        children: const [
+          ShimmerStatCard(),
+          ShimmerStatCard(),
+          ShimmerStatCard(),
+          ShimmerStatCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsGrid(AppProvider provider, bool isDark) {
+    final stats = [
+      {
+        'label': 'Total Tiket',
+        'value': provider.totalTickets,
+        'icon': Icons.confirmation_number_rounded,
+        'color': AppColors.primary,
+        'bgColor': AppColors.primary.withOpacity(0.1),
+      },
+      {
+        'label': 'Open',
+        'value': provider.openTickets,
+        'icon': Icons.fiber_new_rounded,
+        'color': AppColors.statusOpen,
+        'bgColor': AppColors.statusOpenBg,
+      },
+      {
+        'label': 'In Progress',
+        'value': provider.inProgressTickets,
+        'icon': Icons.autorenew_rounded,
+        'color': AppColors.statusInProgress,
+        'bgColor': AppColors.statusInProgressBg,
+      },
+      {
+        'label': 'Selesai',
+        'value': provider.doneTickets,
+        'icon': Icons.check_circle_outline_rounded,
+        'color': AppColors.statusDone,
+        'bgColor': AppColors.statusDoneBg,
+      },
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.55,
+        children: stats.asMap().entries.map((entry) {
+          final s = entry.value;
+          return _StatCard(
+            label: s['label'] as String,
+            value: s['value'] as int,
+            icon: s['icon'] as IconData,
+            color: s['color'] as Color,
+            bgColor: s['bgColor'] as Color,
+            isDark: isDark,
+          )
+              .animate()
+              .fadeIn(
+                  delay: Duration(milliseconds: 100 * entry.key),
+                  duration: 400.ms)
+              .scale(
+                  begin: const Offset(0.9, 0.9),
+                  end: const Offset(1.0, 1.0),
+                  delay: Duration(milliseconds: 100 * entry.key));
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String label;
+  final int value;
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+  final bool isDark;
+
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.bgColor,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.cardDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color:
+              isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.cardDark : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: isDark
+                  ? const Color(0xFF2D3F55)
+                  : const Color(0xFFE8EDF5)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final bool isUser;
+  const _EmptyState({required this.isUser});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Icon(
+            Icons.inbox_rounded,
+            size: 64,
+            color: Colors.grey.withOpacity(0.4),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Belum ada tiket',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.withOpacity(0.6),
+            ),
+          ),
+          if (isUser) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Tekan tombol + untuk membuat tiket baru',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.withOpacity(0.5),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

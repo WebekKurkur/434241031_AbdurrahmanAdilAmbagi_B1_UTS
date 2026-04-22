@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/ticket_model.dart';
+import '../domain/entities/ticket_entity.dart';
+import '../domain/entities/user_entity.dart';
 
 class AppColors {
   static const primary = Color(0xFF1565C0);

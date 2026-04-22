@@ -3,21 +3,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
-import '../models/ticket_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/auth_provider.dart';
+import '../presentation/providers/ticket_provider.dart';
+import '../domain/entities/ticket_entity.dart';
+import '../domain/entities/user_entity.dart';
 import '../theme/app_theme.dart';
 import '../widgets/status_badge.dart';
 
-class TicketDetailScreen extends StatefulWidget {
+class TicketDetailScreen extends ConsumerStatefulWidget {
   final String ticketId;
   const TicketDetailScreen({super.key, required this.ticketId});
 
   @override
-  State<TicketDetailScreen> createState() => _TicketDetailScreenState();
+  ConsumerState<TicketDetailScreen> createState() => _TicketDetailScreenState();
 }
 
-class _TicketDetailScreenState extends State<TicketDetailScreen> {
+class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
   final _commentController = TextEditingController();
   final _scrollController = ScrollController();
 
@@ -28,10 +30,21 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     super.dispose();
   }
 
-  void _sendComment(AppProvider provider) {
+  Future<void> _sendComment(UserEntity user) async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
-    provider.addComment(widget.ticketId, text);
+
+    await ref.read(addCommentUseCaseProvider)(
+          widget.ticketId,
+          text,
+          user.name,
+          user.role,
+        );
+    ref.invalidate(allTicketsProvider);
+    ref.invalidate(userTicketsProvider);
+    ref.invalidate(ticketStatsProvider);
+    ref.invalidate(ticketByIdProvider(widget.ticketId));
+
     _commentController.clear();
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
@@ -44,8 +57,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     });
   }
 
-  void _showStatusSheet(
-      BuildContext context, Ticket ticket, AppProvider provider) {
+  void _showStatusSheet(BuildContext context, TicketEntity ticket) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -81,8 +93,16 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   trailing: isSelected
                       ? Icon(Icons.check_rounded, color: AppColors.primary)
                       : null,
-                  onTap: () {
-                    provider.updateTicketStatus(ticket.id, status);
+                  onTap: () async {
+                    await ref.read(updateTicketStatusUseCaseProvider)(
+                          ticket.id,
+                          status,
+                        );
+                    ref.invalidate(allTicketsProvider);
+                    ref.invalidate(userTicketsProvider);
+                    ref.invalidate(ticketStatsProvider);
+                    ref.invalidate(ticketByIdProvider(ticket.id));
+                    if (!mounted) return;
                     Navigator.pop(context);
                   },
                 );
@@ -95,8 +115,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     );
   }
 
-  void _showAssignSheet(
-      BuildContext context, Ticket ticket, AppProvider provider) {
+  void _showAssignSheet(BuildContext context, TicketEntity ticket) {
     final helpdeskUsers = ['Budi Santoso', 'Dewi Rahayu', 'Eko Prasetyo'];
     showModalBottomSheet(
       context: context,
@@ -134,8 +153,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                       ? const Icon(Icons.check_rounded,
                           color: AppColors.primary)
                       : null,
-                  onTap: () {
-                    provider.assignTicket(ticket.id, name);
+                  onTap: () async {
+                    await ref.read(assignTicketUseCaseProvider)(ticket.id, name);
+                    ref.invalidate(allTicketsProvider);
+                    ref.invalidate(userTicketsProvider);
+                    ref.invalidate(ticketStatsProvider);
+                    ref.invalidate(ticketByIdProvider(ticket.id));
+                    if (!mounted) return;
                     Navigator.pop(context);
                   },
                 );
@@ -150,17 +174,32 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final ticket = provider.getTicketById(widget.ticketId);
-    final user = provider.currentUser!;
+    final ticketAsync = ref.watch(ticketByIdProvider(widget.ticketId));
+    final user = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final canManage =
-        user.role == UserRole.admin || user.role == UserRole.helpdesk;
 
-    if (ticket == null) {
+    if (user == null) {
       return const Scaffold(
-          body: Center(child: Text('Tiket tidak ditemukan')));
+        body: Center(child: Text('Silakan login kembali')),
+      );
     }
+
+    return ticketAsync.when(
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const Scaffold(
+        body: Center(child: Text('Gagal memuat tiket')),
+      ),
+      data: (ticket) {
+        if (ticket == null) {
+          return const Scaffold(
+            body: Center(child: Text('Tiket tidak ditemukan')),
+          );
+        }
+
+        final canManage =
+            user.role == UserRole.admin || user.role == UserRole.helpdesk;
 
     return Scaffold(
       appBar: AppBar(
@@ -173,9 +212,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   borderRadius: BorderRadius.circular(12)),
               onSelected: (v) {
                 if (v == 'status') {
-                  _showStatusSheet(context, ticket, provider);
+                  _showStatusSheet(context, ticket);
                 } else if (v == 'assign') {
-                  _showAssignSheet(context, ticket, provider);
+                  _showAssignSheet(context, ticket);
                 }
               },
               itemBuilder: (_) => [
@@ -436,7 +475,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                     ),
                     maxLines: null,
                     textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendComment(provider),
+                    onSubmitted: (_) => _sendComment(user),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -445,7 +484,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => _sendComment(provider),
+                    onTap: () => _sendComment(user),
                     child: const Padding(
                       padding: EdgeInsets.all(12),
                       child: Icon(Icons.send_rounded,
@@ -458,6 +497,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }
@@ -502,7 +543,7 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _CommentBubble extends StatelessWidget {
-  final Comment comment;
+  final CommentEntity comment;
   final bool isCurrentUser;
   final bool isDark;
 

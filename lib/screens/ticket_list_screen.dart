@@ -2,22 +2,22 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
-import '../models/ticket_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/ticket_provider.dart';
+import '../domain/entities/ticket_entity.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ticket_card.dart';
 import '../widgets/shimmer_card.dart';
 import 'ticket_detail_screen.dart';
 
-class TicketListScreen extends StatefulWidget {
+class TicketListScreen extends ConsumerStatefulWidget {
   const TicketListScreen({super.key});
 
   @override
-  State<TicketListScreen> createState() => _TicketListScreenState();
+  ConsumerState<TicketListScreen> createState() => _TicketListScreenState();
 }
 
-class _TicketListScreenState extends State<TicketListScreen>
+class _TicketListScreenState extends ConsumerState<TicketListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _loading = true;
@@ -40,8 +40,8 @@ class _TicketListScreenState extends State<TicketListScreen>
     super.dispose();
   }
 
-  List<Ticket> _filterTickets(List<Ticket> tickets, int tabIndex) {
-    List<Ticket> filtered;
+  List<TicketEntity> _filterTickets(List<TicketEntity> tickets, int tabIndex) {
+    List<TicketEntity> filtered;
     switch (tabIndex) {
       case 1:
         filtered = tickets.where((t) => t.status == TicketStatus.open).toList();
@@ -68,8 +68,8 @@ class _TicketListScreenState extends State<TicketListScreen>
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final allTickets = ref.watch(userTicketsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -100,32 +100,40 @@ class _TicketListScreenState extends State<TicketListScreen>
           ),
           const SizedBox(width: 4),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          onTap: (_) => setState(() {}),
-          labelStyle: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w700),
-          unselectedLabelStyle:
-              const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
-          labelColor: AppColors.primary,
-          unselectedLabelColor:
-              isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-          indicatorColor: AppColors.primary,
-          indicatorSize: TabBarIndicatorSize.tab,
-          tabs: [
-            Tab(
-                text:
-                    'Semua (${provider.userTickets.length})'),
-            Tab(
-                text:
-                    'Open (${provider.openTickets})'),
-            Tab(
-                text:
-                    'Progress (${provider.inProgressTickets})'),
-            Tab(
-                text:
-                    'Done (${provider.doneTickets})'),
-          ],
+        bottom: allTickets.when(
+          data: (tickets) {
+            final stats = (
+              total: tickets.length,
+              open:
+                  tickets.where((t) => t.status == TicketStatus.open).length,
+              progress: tickets
+                  .where((t) => t.status == TicketStatus.inProgress)
+                  .length,
+              done: tickets.where((t) => t.status == TicketStatus.done).length,
+            );
+            return TabBar(
+              controller: _tabController,
+              onTap: (_) => setState(() {}),
+              labelStyle: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700),
+              unselectedLabelStyle:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+              labelColor: AppColors.primary,
+              unselectedLabelColor:
+                  isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+              indicatorColor: AppColors.primary,
+              indicatorSize: TabBarIndicatorSize.tab,
+              tabs: [
+                Tab(text: 'Semua (${stats.total})'),
+                Tab(text: 'Open (${stats.open})'),
+                Tab(text: 'Progress (${stats.progress})'),
+                Tab(text: 'Done (${stats.done})'),
+              ],
+            );
+          },
+          loading: () => TabBar(tabs: [Tab(), Tab(), Tab(), Tab()]),
+          error: (err, stack) =>
+              TabBar(tabs: [Tab(), Tab(), Tab(), Tab()]),
         ),
       ),
       body: _loading
@@ -133,57 +141,68 @@ class _TicketListScreenState extends State<TicketListScreen>
               itemCount: 4,
               itemBuilder: (_, __) => const ShimmerCard(),
             )
-          : TabBarView(
-              controller: _tabController,
-              children: List.generate(4, (tabIndex) {
-                final filtered =
-                    _filterTickets(provider.userTickets, tabIndex);
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inbox_rounded,
-                          size: 64,
-                          color: Colors.grey.withOpacity(0.35),
+          : allTickets.when(
+              data: (tickets) {
+                return TabBarView(
+                  controller: _tabController,
+                  children: List.generate(4, (tabIndex) {
+                    final filtered = _filterTickets(tickets, tabIndex);
+                    if (filtered.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inbox_rounded,
+                              size: 64,
+                              color: isDark
+                                  ? const Color(0xFF475569)
+                                  : const Color(0xFFCBD5E1),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Tidak ada tiket',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isNotEmpty
-                              ? 'Tidak ada hasil untuk "$_searchQuery"'
-                              : 'Tidak ada tiket',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.grey.withOpacity(0.6),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        return TicketCard(
+                          ticket: filtered[index],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TicketDetailScreen(
+                                ticketId: filtered[index].id,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(top: 8, bottom: 100),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    return TicketCard(
-                      ticket: filtered[index],
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TicketDetailScreen(
-                              ticketId: filtered[index].id),
-                        ),
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(
-                            delay: Duration(milliseconds: 50 * index),
-                            duration: 300.ms)
-                        .slideX(begin: 0.05);
-                  },
+                        )
+                            .animate()
+                            .fadeIn(
+                                delay: Duration(milliseconds: 50 * index),
+                                duration: 300.ms);
+                      },
+                    );
+                  }),
                 );
-              }),
+              },
+              loading: () => ListView.builder(
+                itemCount: 4,
+                itemBuilder: (_, __) => const ShimmerCard(),
+              ),
+              error: (err, stack) =>
+                  Center(child: Text('Error loading tickets: $err')),
             ),
     );
   }

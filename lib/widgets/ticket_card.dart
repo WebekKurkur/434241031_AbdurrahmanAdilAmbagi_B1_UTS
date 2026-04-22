@@ -1,13 +1,14 @@
 // lib/widgets/ticket_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import '../models/ticket_model.dart';
+import '../domain/entities/ticket_entity.dart';
 import '../theme/app_theme.dart';
 import 'status_badge.dart';
 
 class TicketCard extends StatelessWidget {
-  final Ticket ticket;
+  final TicketEntity ticket;
   final VoidCallback onTap;
 
   const TicketCard({super.key, required this.ticket, required this.onTap});

@@ -1,34 +1,33 @@
 // lib/screens/home_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
-import '../models/ticket_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/auth_provider.dart';
+import '../domain/entities/user_entity.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'ticket_list_screen.dart';
 import 'profile_screen.dart';
 import 'create_ticket_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final role = provider.currentUser?.role;
+    final currentUser = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: _buildScreen(_currentIndex),
-      floatingActionButton: role == UserRole.user
+      floatingActionButton: currentUser?.role == UserRole.user
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(
@@ -50,9 +49,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard_rounded, 'Dashboard', isDark),
-                _buildNavItem(1, Icons.confirmation_number_outlined, Icons.confirmation_number_rounded, 'Tiket', isDark),
-                _buildNavItem(2, Icons.person_outline_rounded, Icons.person_rounded, 'Profil', isDark),
+                _buildNavItem(0, Icons.dashboard_outlined,
+                    Icons.dashboard_rounded, 'Dashboard', isDark),
+                _buildNavItem(
+                    1,
+                    Icons.confirmation_number_outlined,
+                    Icons.confirmation_number_rounded,
+                    'Tiket',
+                    isDark),
+                _buildNavItem(2, Icons.person_outline_rounded, Icons.person_rounded,
+                    'Profil', isDark),
               ],
             ),
           ),

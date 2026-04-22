@@ -2,18 +2,21 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
-import '../models/ticket_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/auth_provider.dart';
+import '../presentation/providers/theme_provider.dart';
+import '../presentation/providers/ticket_provider.dart';
+import '../domain/entities/user_entity.dart';
+import '../domain/entities/ticket_entity.dart';
 import '../theme/app_theme.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final user = provider.currentUser;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final allTickets = ref.watch(userTicketsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (user == null) {
@@ -192,35 +195,53 @@ class ProfileScreen extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-              child: Row(
-                children: [
-                  _StatItem(
-                    value: provider.totalTickets.toString(),
-                    label: 'Total',
-                    isDark: isDark,
-                  ),
-                  _divider(),
-                  _StatItem(
-                    value: provider.openTickets.toString(),
-                    label: 'Open',
-                    color: AppColors.statusOpen,
-                    isDark: isDark,
-                  ),
-                  _divider(),
-                  _StatItem(
-                    value: provider.inProgressTickets.toString(),
-                    label: 'Progress',
-                    color: AppColors.statusInProgress,
-                    isDark: isDark,
-                  ),
-                  _divider(),
-                  _StatItem(
-                    value: provider.doneTickets.toString(),
-                    label: 'Selesai',
-                    color: AppColors.statusDone,
-                    isDark: isDark,
-                  ),
-                ],
+              child: allTickets.when(
+                data: (tickets) {
+                  final stats = (
+                    total: tickets.length,
+                    open: tickets
+                        .where((t) => t.status == TicketStatus.open)
+                        .length,
+                    progress: tickets
+                        .where((t) => t.status == TicketStatus.inProgress)
+                        .length,
+                    done: tickets
+                        .where((t) => t.status == TicketStatus.done)
+                        .length,
+                  );
+                  return Row(
+                    children: [
+                      _StatItem(
+                        value: stats.total.toString(),
+                        label: 'Total',
+                        isDark: isDark,
+                      ),
+                      _divider(),
+                      _StatItem(
+                        value: stats.open.toString(),
+                        label: 'Open',
+                        color: AppColors.statusOpen,
+                        isDark: isDark,
+                      ),
+                      _divider(),
+                      _StatItem(
+                        value: stats.progress.toString(),
+                        label: 'Progress',
+                        color: AppColors.statusInProgress,
+                        isDark: isDark,
+                      ),
+                      _divider(),
+                      _StatItem(
+                        value: stats.done.toString(),
+                        label: 'Selesai',
+                        color: AppColors.statusDone,
+                        isDark: isDark,
+                      ),
+                    ],
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => const SizedBox.shrink(),
               ),
             ),
           ),
@@ -347,7 +368,8 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             Switch.adaptive(
                               value: isDark,
-                              onChanged: (_) => provider.toggleTheme(),
+                              onChanged: (_) =>
+                                  ref.read(themeProvider.notifier).toggle(),
                               activeColor: AppColors.primary,
                             ),
                           ],
@@ -415,7 +437,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            provider.logout();
+                            ref.read(currentUserProvider.notifier).logout();
                             Navigator.pushNamedAndRemoveUntil(
                                 context, '/login', (_) => false);
                           },

@@ -2,23 +2,24 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   String? _errorMessage;
   String _selectedRole = 'user';
+  bool _isLoading = false;
 
   final _roles = [
     {'value': 'user', 'label': 'User', 'icon': Icons.person_outline_rounded},
@@ -27,7 +28,11 @@ class _LoginScreenState extends State<LoginScreen> {
       'label': 'Helpdesk',
       'icon': Icons.headset_mic_outlined
     },
-    {'value': 'admin', 'label': 'Admin', 'icon': Icons.admin_panel_settings_outlined},
+    {
+      'value': 'admin',
+      'label': 'Admin',
+      'icon': Icons.admin_panel_settings_outlined
+    },
   ];
 
   void _selectRole(String role) {
@@ -44,19 +49,25 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() => _errorMessage = null);
-    final provider = context.read<AppProvider>();
-    final success = await provider.login(
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+    });
+
+    final authNotifier = ref.read(currentUserProvider.notifier);
+    final success = await authNotifier.login(
       _usernameController.text.trim(),
       _passwordController.text,
     );
 
     if (mounted) {
+      setState(() => _isLoading = false);
       if (success) {
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         setState(
-            () => _errorMessage = 'Username atau password salah. (hint: password = "password")');
+            () => _errorMessage =
+                'Username atau password salah. (hint: password = "password")');
       }
     }
   }
@@ -71,7 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final provider = context.watch<AppProvider>();
 
     return Scaffold(
       body: Stack(
@@ -337,8 +347,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: provider.isLoading ? null : _handleLogin,
-                            child: provider.isLoading
+                            onPressed: _isLoading ? null : _handleLogin,
+                            child: _isLoading
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,

@@ -2,19 +2,20 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
-import '../models/ticket_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/auth_provider.dart';
+import '../presentation/providers/ticket_provider.dart';
+import '../domain/entities/ticket_entity.dart';
 import '../theme/app_theme.dart';
 
-class CreateTicketScreen extends StatefulWidget {
+class CreateTicketScreen extends ConsumerStatefulWidget {
   const CreateTicketScreen({super.key});
 
   @override
-  State<CreateTicketScreen> createState() => _CreateTicketScreenState();
+  ConsumerState<CreateTicketScreen> createState() => _CreateTicketScreenState();
 }
 
-class _CreateTicketScreenState extends State<CreateTicketScreen> {
+class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   String _selectedCategory = 'Hardware';
@@ -39,9 +40,12 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
     if (!mounted) return;
 
-    final provider = context.read<AppProvider>();
-    final user = provider.currentUser!;
-    final newTicket = Ticket(
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      setState(() => _isSubmitting = false);
+      return;
+    }
+    final newTicket = TicketEntity(
       id: 'TKT-${(DateTime.now().millisecondsSinceEpoch % 10000).toString().padLeft(3, '0')}',
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
@@ -53,8 +57,12 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       imageUrl: _hasImage ? 'https://picsum.photos/seed/${DateTime.now().millisecond}/400/300' : null,
     );
 
-    provider.addTicket(newTicket);
+    await ref.read(addTicketUseCaseProvider)(newTicket);
+    ref.invalidate(allTicketsProvider);
+    ref.invalidate(userTicketsProvider);
+    ref.invalidate(ticketStatsProvider);
 
+    if (!mounted) return;
     setState(() => _isSubmitting = false);
 
     // Show success

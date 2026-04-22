@@ -2,23 +2,24 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
-import '../models/ticket_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/auth_provider.dart';
+import '../presentation/providers/ticket_provider.dart';
+import '../domain/entities/user_entity.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shimmer_card.dart';
 import '../widgets/ticket_card.dart';
 import 'ticket_detail_screen.dart';
 import 'create_ticket_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _loading = true;
 
   @override
@@ -31,8 +32,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final user = provider.currentUser;
+    final user = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (user == null) {
@@ -58,9 +58,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
-          setState(() => _loading = true);
-          await Future.delayed(const Duration(milliseconds: 1200));
-          if (mounted) setState(() => _loading = false);
+          ref.refresh(userTicketsProvider);
+          ref.refresh(ticketStatsProvider);
         },
         child: CustomScrollView(
           slivers: [
@@ -167,7 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             SliverToBoxAdapter(
               child: _loading
                   ? _buildShimmerStats()
-                  : _buildStatsGrid(provider, isDark),
+                  : _buildStatsGrid(ref, isDark),
             ),
 
             // Quick actions (User only)
@@ -262,36 +261,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   childCount: 3,
                 ),
               )
-            else if (provider.userTickets.isEmpty)
-              SliverToBoxAdapter(
-                child: _EmptyState(
-                  isUser: user.role == UserRole.user,
-                ),
-              )
             else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final tickets = provider.userTickets.take(4).toList();
-                    if (index >= tickets.length) return null;
-                    return TicketCard(
-                      ticket: tickets[index],
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              TicketDetailScreen(ticketId: tickets[index].id),
-                        ),
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(
-                            delay: Duration(milliseconds: 100 * index),
-                            duration: 400.ms)
-                        .slideX(begin: 0.05);
+              SliverToBoxAdapter(
+                child: ref.watch(userTicketsProvider).when(
+                  data: (tickets) {
+                    if (tickets.isEmpty) {
+                      return _EmptyState(
+                        isUser: user.role == UserRole.user,
+                      );
+                    }
+                    return Column(
+                      children: tickets.take(4).toList().asMap().entries.map((entry) {
+                        return TicketCard(
+                          ticket: entry.value,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TicketDetailScreen(
+                                ticketId: entry.value.id,
+                              ),
+                            ),
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(
+                                delay: Duration(milliseconds: 100 * entry.key),
+                                duration: 400.ms)
+                            .slideX(begin: 0.05);
+                      }).toList(),
+                    );
                   },
-                  childCount:
-                      provider.userTickets.take(4).length,
+                  loading: () => Column(
+                    children: List.generate(3, (_) => const ShimmerCard()),
+                  ),
+                  error: (err, stack) =>
+                      Center(child: Text('Error loading tickets: $err')),
                 ),
               ),
 
@@ -322,67 +326,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildStatsGrid(AppProvider provider, bool isDark) {
-    final stats = [
-      {
-        'label': 'Total Tiket',
-        'value': provider.totalTickets,
-        'icon': Icons.confirmation_number_rounded,
-        'color': AppColors.primary,
-        'bgColor': AppColors.primary.withOpacity(0.1),
-      },
-      {
-        'label': 'Open',
-        'value': provider.openTickets,
-        'icon': Icons.fiber_new_rounded,
-        'color': AppColors.statusOpen,
-        'bgColor': AppColors.statusOpenBg,
-      },
-      {
-        'label': 'In Progress',
-        'value': provider.inProgressTickets,
-        'icon': Icons.autorenew_rounded,
-        'color': AppColors.statusInProgress,
-        'bgColor': AppColors.statusInProgressBg,
-      },
-      {
-        'label': 'Selesai',
-        'value': provider.doneTickets,
-        'icon': Icons.check_circle_outline_rounded,
-        'color': AppColors.statusDone,
-        'bgColor': AppColors.statusDoneBg,
-      },
-    ];
+  Widget _buildStatsGrid(WidgetRef ref, bool isDark) {
+    return ref.watch(ticketStatsProvider).when(
+      data: (stats) {
+        final statsList = [
+          {
+            'label': 'Total Tiket',
+            'value': stats.total,
+            'icon': Icons.confirmation_number_rounded,
+            'color': AppColors.primary,
+            'bgColor': AppColors.primary.withValues(alpha: 0.1),
+          },
+          {
+            'label': 'Open',
+            'value': stats.open,
+            'icon': Icons.fiber_new_rounded,
+            'color': AppColors.statusOpen,
+            'bgColor': AppColors.statusOpen.withValues(alpha: 0.1),
+          },
+          {
+            'label': 'In Progress',
+            'value': stats.inProgress,
+            'icon': Icons.autorenew_rounded,
+            'color': AppColors.statusInProgress,
+            'bgColor': AppColors.statusInProgress.withValues(alpha: 0.1),
+          },
+          {
+            'label': 'Selesai',
+            'value': stats.done,
+            'icon': Icons.check_circle_outline_rounded,
+            'color': AppColors.statusDone,
+            'bgColor': AppColors.statusDone.withValues(alpha: 0.1),
+          },
+        ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.55,
-        children: stats.asMap().entries.map((entry) {
-          final s = entry.value;
-          return _StatCard(
-            label: s['label'] as String,
-            value: s['value'] as int,
-            icon: s['icon'] as IconData,
-            color: s['color'] as Color,
-            bgColor: s['bgColor'] as Color,
-            isDark: isDark,
-          )
-              .animate()
-              .fadeIn(
-                  delay: Duration(milliseconds: 100 * entry.key),
-                  duration: 400.ms)
-              .scale(
-                  begin: const Offset(0.9, 0.9),
-                  end: const Offset(1.0, 1.0),
-                  delay: Duration(milliseconds: 100 * entry.key));
-        }).toList(),
-      ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.55,
+            children: statsList.asMap().entries.map((entry) {
+              final s = entry.value;
+              return _StatCard(
+                label: s['label'] as String,
+                value: s['value'] as int,
+                icon: s['icon'] as IconData,
+                color: s['color'] as Color,
+                bgColor: s['bgColor'] as Color,
+                isDark: isDark,
+              )
+                  .animate()
+                  .fadeIn(
+                      delay: Duration(milliseconds: 100 * entry.key),
+                      duration: 400.ms)
+                  .scale(
+                      begin: const Offset(0.9, 0.9),
+                      end: const Offset(1.0, 1.0),
+                      delay: Duration(milliseconds: 100 * entry.key));
+            }).toList(),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (err, stack) =>
+          Center(child: Text('Error loading stats: $err')),
     );
   }
 }

@@ -1,4 +1,4 @@
-// lib/screens/splash_screen.dart
+// lib/presentation/screens/splash_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';

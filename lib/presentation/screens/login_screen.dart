@@ -1,9 +1,9 @@
-// lib/screens/login_screen.dart
+// lib/presentation/screens/login_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../presentation/providers/auth_provider.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {

@@ -1,4 +1,4 @@
-// lib/widgets/shimmer_card.dart
+// lib/presentation/widgets/shimmer_card.dart
 
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';

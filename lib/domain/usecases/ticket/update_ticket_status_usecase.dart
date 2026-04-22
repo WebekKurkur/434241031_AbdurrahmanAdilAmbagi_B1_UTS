@@ -2,13 +2,26 @@
 
 import '../../repositories/ticket_repository.dart';
 import '../../entities/ticket_entity.dart';
+import '../../../core/usecases/usecase.dart';
 
-class UpdateTicketStatusUseCase {
+class UpdateTicketStatusParams {
+  final String ticketId;
+  final TicketStatus status;
+
+  const UpdateTicketStatusParams({
+    required this.ticketId,
+    required this.status,
+  });
+}
+
+class UpdateTicketStatusUseCase
+    implements UseCase<void, UpdateTicketStatusParams> {
   final TicketRepository repository;
 
   UpdateTicketStatusUseCase(this.repository);
 
-  Future<void> call(String ticketId, TicketStatus status) async {
-    return await repository.updateTicketStatus(ticketId, status);
+  @override
+  Future<void> call(UpdateTicketStatusParams params) async {
+    return await repository.updateTicketStatus(params.ticketId, params.status);
   }
 }

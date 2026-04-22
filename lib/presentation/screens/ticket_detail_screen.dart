@@ -1,13 +1,16 @@
-// lib/screens/ticket_detail_screen.dart
+// lib/presentation/screens/ticket_detail_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../presentation/providers/auth_provider.dart';
-import '../presentation/providers/ticket_provider.dart';
-import '../domain/entities/ticket_entity.dart';
-import '../domain/entities/user_entity.dart';
+import '../providers/auth_provider.dart';
+import '../providers/ticket_provider.dart';
+import '../../domain/entities/ticket_entity.dart';
+import '../../domain/entities/user_entity.dart';
+import '../../domain/usecases/ticket/add_comment_usecase.dart';
+import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
+import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
 import '../theme/app_theme.dart';
 import '../widgets/status_badge.dart';
 
@@ -35,10 +38,12 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
     if (text.isEmpty) return;
 
     await ref.read(addCommentUseCaseProvider)(
-          widget.ticketId,
-          text,
-          user.name,
-          user.role,
+          AddCommentParams(
+            ticketId: widget.ticketId,
+            message: text,
+            author: user.name,
+            role: user.role,
+          ),
         );
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
@@ -95,8 +100,10 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                       : null,
                   onTap: () async {
                     await ref.read(updateTicketStatusUseCaseProvider)(
-                          ticket.id,
-                          status,
+                          UpdateTicketStatusParams(
+                            ticketId: ticket.id,
+                            status: status,
+                          ),
                         );
                     ref.invalidate(allTicketsProvider);
                     ref.invalidate(userTicketsProvider);
@@ -154,7 +161,12 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                           color: AppColors.primary)
                       : null,
                   onTap: () async {
-                    await ref.read(assignTicketUseCaseProvider)(ticket.id, name);
+                    await ref.read(assignTicketUseCaseProvider)(
+                          AssignTicketParams(
+                            ticketId: ticket.id,
+                            assignedTo: name,
+                          ),
+                        );
                     ref.invalidate(allTicketsProvider);
                     ref.invalidate(userTicketsProvider);
                     ref.invalidate(ticketStatsProvider);

@@ -1,9 +1,9 @@
-// lib/screens/home_screen.dart
+// lib/presentation/screens/home_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../presentation/providers/auth_provider.dart';
-import '../domain/entities/user_entity.dart';
+import '../providers/auth_provider.dart';
+import '../../domain/entities/user_entity.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'ticket_list_screen.dart';

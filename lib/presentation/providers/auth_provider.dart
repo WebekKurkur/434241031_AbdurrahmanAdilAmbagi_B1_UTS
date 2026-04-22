@@ -31,12 +31,19 @@ final logoutUseCaseProvider = Provider((ref) {
 
 // State Notifier for Auth
 class AuthNotifier extends StateNotifier<UserEntity?> {
-  final AuthRepository repository;
+  final LoginUseCase loginUseCase;
+  final LogoutUseCase logoutUseCase;
 
-  AuthNotifier(this.repository) : super(repository.currentUser);
+  AuthNotifier({
+    required this.loginUseCase,
+    required this.logoutUseCase,
+    required UserEntity? initialUser,
+  }) : super(initialUser);
 
   Future<bool> login(String username, String password) async {
-    final user = await repository.login(username, password);
+    final user = await loginUseCase(
+      LoginParams(username: username, password: password),
+    );
     if (user != null) {
       state = user;
       return true;
@@ -44,8 +51,8 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
     return false;
   }
 
-  void logout() {
-    repository.logout();
+  Future<void> logout() async {
+    await logoutUseCase();
     state = null;
   }
 }
@@ -54,7 +61,11 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
 final currentUserProvider =
     StateNotifierProvider<AuthNotifier, UserEntity?>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return AuthNotifier(repository);
+  return AuthNotifier(
+    loginUseCase: ref.watch(loginUseCaseProvider),
+    logoutUseCase: ref.watch(logoutUseCaseProvider),
+    initialUser: repository.currentUser,
+  );
 });
 
 // Is Logged In Convenience Provider

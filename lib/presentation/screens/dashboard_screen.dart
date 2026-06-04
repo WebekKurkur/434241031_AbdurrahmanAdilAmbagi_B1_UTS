@@ -58,8 +58,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.refresh(userTicketsProvider);
-          ref.refresh(ticketStatsProvider);
+          // Invalidate (not just refresh) so a cold start with a
+          // restored session always shows the latest data from
+          // Supabase rather than a stale in-memory cache.
+          ref.invalidate(allTicketsProvider);
+          ref.invalidate(userTicketsProvider);
+          ref.invalidate(ticketStatsProvider);
         },
         child: CustomScrollView(
           slivers: [
@@ -266,8 +270,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: ref.watch(userTicketsProvider).when(
                   data: (tickets) {
                     if (tickets.isEmpty) {
-                      return _EmptyState(
-                        isUser: user.role == UserRole.user,
+                      return Column(
+                        children: [
+                          _EmptyState(
+                            isUser: user.role == UserRole.user,
+                          ),
+                          const SizedBox(height: 12),
+                          // Diagnostic banner so the user can see
+                          // whether the DB actually has rows that
+                          // RLS is filtering out.
+                          _DbStatusBanner(
+                            isDark: isDark,
+                            role: user.role,
+                          ),
+                        ],
                       );
                     }
                     return Column(
@@ -562,6 +578,109 @@ class _EmptyState extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Diagnostic banner shown when the role-aware ticket list is empty.
+/// Reports the raw row count (under current RLS), the filtered count,
+/// the user's role, and any error. This is the single best way to
+/// tell whether "empty list" means "no data in DB" or "RLS is hiding
+/// rows from this role".
+class _DbStatusBanner extends ConsumerWidget {
+  final bool isDark;
+  final UserRole role;
+  const _DbStatusBanner({required this.isDark, required this.role});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(ticketDbStatusProvider);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5FB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF334155)
+              : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: status.when(
+        loading: () => const Row(
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 8),
+            Text('Memeriksa database…', style: TextStyle(fontSize: 12)),
+          ],
+        ),
+        error: (err, _) => Text(
+          'DB check error: $err',
+          style: const TextStyle(fontSize: 11, color: Colors.red),
+        ),
+        data: (s) {
+          if (s.errorMessage != null) {
+            return Text(
+              'DB error: ${s.errorMessage}',
+              style: const TextStyle(fontSize: 11, color: Colors.red),
+            );
+          }
+          final roleName = role == UserRole.admin
+              ? 'admin (lihat semua)'
+              : role == UserRole.helpdesk
+                  ? 'helpdesk (assigned to you)'
+                  : 'user (created by you)';
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Status DB',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF64748B),
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '• Role aktif: $roleName\n'
+                '• Baris tiket di DB (raw, lewat RLS): ${s.totalRows}\n'
+                '• Baris setelah filter role: ${s.matchCount ?? 0}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? const Color(0xFFCBD5E1)
+                      : const Color(0xFF334155),
+                  height: 1.5,
+                ),
+              ),
+              if (s.totalRows > 0 && (s.matchCount ?? 0) == 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '⚠ DB punya ${s.totalRows} tiket, tapi role-filter tidak '
+                  'cocok. Kemungkinan nama di profiles ≠ created_by/assigned_to '
+                  'pada tiket. Tarik untuk refresh.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark
+                        ? const Color(0xFFFBBF24)
+                        : const Color(0xFFB45309),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

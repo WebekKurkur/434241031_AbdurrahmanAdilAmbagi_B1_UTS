@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../../domain/entities/ticket_entity.dart';
+import '../../domain/entities/user_entity.dart';
 import '../theme/app_theme.dart';
 
 class CreateTicketScreen extends ConsumerStatefulWidget {
@@ -57,7 +58,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
       imageUrl: _hasImage ? 'https://picsum.photos/seed/${DateTime.now().millisecond}/400/300' : null,
     );
 
-    await ref.read(addTicketUseCaseProvider)(newTicket);
+    final created = await ref.read(addTicketUseCaseProvider)(newTicket);
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
     ref.invalidate(ticketStatsProvider);
@@ -93,7 +94,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'ID: ${newTicket.id}',
+              'ID: ${created.id}',
               style: const TextStyle(
                   color: AppColors.primary, fontWeight: FontWeight.w600),
             ),
@@ -124,6 +125,58 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = ref.watch(currentUserProvider);
+
+    // Hard guard: only `user` role may create tickets. Admin and
+    // helpdesk should never reach this screen, but if they do
+    // (deep link, hot reload, race after sign-out) we block them
+    // with a clear message rather than silently failing.
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Buat Tiket Baru')),
+        body: const Center(child: Text('Silakan login kembali')),
+      );
+    }
+    if (user.role != UserRole.user) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Buat Tiket Baru'),
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline_rounded, size: 56, color: Colors.grey),
+                const SizedBox(height: 12),
+                const Text(
+                  'Hanya user yang dapat membuat tiket',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Anda login sebagai ${getRoleLabel(user.role)}. '
+                  'Fitur ini dikhususkan untuk role User.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Kembali'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Buat Tiket Baru')),

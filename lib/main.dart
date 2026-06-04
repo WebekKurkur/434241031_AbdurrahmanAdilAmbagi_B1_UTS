@@ -2,19 +2,34 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'presentation/theme/app_theme.dart';
 import 'presentation/screens/splash_screen.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/home_screen.dart';
 import 'presentation/providers/theme_provider.dart';
+import 'presentation/providers/ticket_provider.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables (SUPABASE_URL, SUPABASE_ANON_KEY)
+  await dotenv.load(fileName: '.env');
+
+  // Initialize Supabase. Anonymous key is safe in client apps because
+  // Row Level Security in the database enforces who can do what.
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL'] ?? '',
+    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+  );
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
   runApp(
     const ProviderScope(
       child: MyApp(),
@@ -28,6 +43,12 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDarkMode = ref.watch(isDarkModeProvider);
+
+    // Activate the side-effect provider that invalidates ticket
+    // providers on every Supabase auth event. This is what makes a
+    // cold start with a restored session show fresh data instead of
+    // a stale in-memory list.
+    ref.watch(ticketInvalidatorProvider);
 
     return MaterialApp(
       title: 'HelpDesk E-Ticketing',

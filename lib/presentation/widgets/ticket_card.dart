@@ -1,7 +1,6 @@
 // lib/presentation/widgets/ticket_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import '../../domain/entities/ticket_entity.dart';
 import '../theme/app_theme.dart';

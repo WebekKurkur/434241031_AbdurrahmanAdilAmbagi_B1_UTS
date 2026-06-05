@@ -1,5 +1,7 @@
 // lib/domain/repositories/ticket_repository.dart
 
+import 'dart:typed_data';
+
 import '../entities/ticket_entity.dart';
 import '../entities/user_entity.dart';
 
@@ -29,4 +31,13 @@ abstract class TicketRepository {
     UserRole role,
   );
   Future<List<HelpdeskUserSummary>> getHelpdeskUsers();
+
+  /// Upload [bytes] to the `attachments` Storage bucket under
+  /// `tickets/<subdir>/<timestamp>.<ext>` and return the public URL.
+  /// [subdir] is typically the ticket's `ticket_code` or a uuid.
+  Future<String> uploadTicketImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String subdir,
+  });
 }

@@ -2,6 +2,9 @@
 //
 // Bridges the domain layer to the Supabase TicketDataSource.
 
+import 'dart:typed_data';
+
+import '../../core/network/storage_helper.dart';
 import '../../domain/entities/ticket_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/ticket_repository.dart';
@@ -9,8 +12,9 @@ import '../datasources/ticket_datasource.dart';
 
 class TicketRepositoryImpl implements TicketRepository {
   final TicketDataSource dataSource;
+  final StorageHelper storage;
 
-  TicketRepositoryImpl(this.dataSource);
+  TicketRepositoryImpl(this.dataSource, this.storage);
 
   @override
   Future<List<TicketEntity>> getTickets() async {
@@ -66,5 +70,25 @@ class TicketRepositoryImpl implements TicketRepository {
     UserRole role,
   ) async {
     return await dataSource.addComment(ticketId, message, author, role);
+  }
+
+  @override
+  Future<String> uploadTicketImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String subdir,
+  }) async {
+    // Pull the file extension from the picker's file name. Fall
+    // back to `jpg` for the camera (the OS sometimes returns a
+    // bare name like `image`).
+    final dot = fileName.lastIndexOf('.');
+    var ext = dot == -1 ? 'jpg' : fileName.substring(dot + 1).toLowerCase();
+    if (ext.length > 4 || ext.isEmpty) ext = 'jpg';
+    return await storage.uploadImage(
+      bytes,
+      folder: 'tickets',
+      subdir: subdir,
+      ext: ext,
+    );
   }
 }

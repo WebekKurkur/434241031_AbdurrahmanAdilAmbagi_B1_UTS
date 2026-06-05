@@ -1,12 +1,32 @@
 // lib/presentation/screens/create_ticket_screen.dart
+//
+// Form for creating a new ticket. The image field is backed by
+// `image_picker` (camera or gallery) and uploads to the
+// `attachments` Supabase Storage bucket via `StorageHelper`.
+//
+// Flow:
+//   1. User picks a photo (camera or gallery) → `_pickedBytes`
+//   2. User taps "Kirim Tiket" → upload use case runs first
+//   3. If the upload succeeds, `addTicket` runs with the URL
+//   4. If the upload fails, the user is asked to retry
+//      (we don't submit a text-only ticket in that case so the
+//      photo is never silently lost)
 
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
-import '../providers/ticket_provider.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../core/network/storage_helper.dart';
 import '../../domain/entities/ticket_entity.dart';
 import '../../domain/entities/user_entity.dart';
+import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
+import '../providers/auth_provider.dart';
+import '../providers/ticket_provider.dart';
 import '../theme/app_theme.dart';
 
 class CreateTicketScreen extends ConsumerStatefulWidget {
@@ -20,10 +40,23 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   String _selectedCategory = 'Hardware';
-  bool _hasImage = false;
-  bool _isSubmitting = false;
-  final _formKey = GlobalKey<FormState>();
 
+  // Image-picker state.
+  // `_pickedBytes` is null until the user picks something.
+  // `_pickedFileName` comes from the OS (`XFile.name`).
+  Uint8List? _pickedBytes;
+  String? _pickedFileName;
+  bool _picking = false; // showing the OS camera/gallery sheet
+
+  // Submit state.
+  // `_uploading` is true while the photo is being pushed to
+  // Supabase Storage; `_submitting` is true while the ticket row
+  // is being created.
+  bool _uploading = false;
+  bool _submitting = false;
+
+  final _formKey = GlobalKey<FormState>();
+  final _picker = ImagePicker();
   final _categories = ['Hardware', 'Software', 'Network', 'General'];
 
   @override
@@ -33,21 +66,131 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
     super.dispose();
   }
 
+  // --------------------------------------------------------- pickers
+
+  Future<void> _pickFromCamera() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final XFile? file = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (file == null) return; // user cancelled, silent
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _pickedBytes = bytes;
+        _pickedFileName = file.name;
+      });
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      _showPickError('kamera', e);
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError('kamera', e);
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final XFile? file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (file == null) return; // user cancelled, silent
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _pickedBytes = bytes;
+        _pickedFileName = file.name;
+      });
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      _showPickError('galeri', e);
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError('galeri', e);
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  void _showPickError(String source, Object e) {
+    final code = e is PlatformException ? e.code : '';
+    final msg = code.contains('denied') || code.contains('permanently')
+        ? 'Akses $source ditolak. Buka Pengaturan → Aplikasi → Helpdesk → Izin.'
+        : 'Gagal membuka $source: $e';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _clearPicked() {
+    setState(() {
+      _pickedBytes = null;
+      _pickedFileName = null;
+    });
+  }
+
+  // --------------------------------------------------------- submit
+
   Future<void> _submitTicket() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
+    if (_submitting || _uploading) return;
 
     final user = ref.read(currentUserProvider);
-    if (user == null) {
-      setState(() => _isSubmitting = false);
-      return;
+    if (user == null) return;
+
+    String? imageUrl;
+    if (_pickedBytes != null) {
+      setState(() => _uploading = true);
+      // Use a temporary subdir until the ticket is created and
+      // we have its real `ticket_code`. A short uuid-shaped
+      // subdir keeps uploads isolated per submit.
+      final subdir = 'pending-${DateTime.now().millisecondsSinceEpoch}';
+      try {
+        imageUrl = await ref.read(uploadTicketImageUseCaseProvider)(
+              UploadTicketImageParams(
+                bytes: _pickedBytes!,
+                fileName: _pickedFileName ?? 'photo.jpg',
+                subdir: subdir,
+              ),
+            );
+      } on StorageUploadException catch (e) {
+        if (!mounted) return;
+        setState(() => _uploading = false);
+        await _showUploadRetryDialog(e);
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _uploading = false);
+        await _showUploadRetryDialog(
+          const StorageUploadException('Upload gagal (unknown)'),
+        );
+        return;
+      } finally {
+        if (mounted) setState(() => _uploading = false);
+      }
     }
+
+    if (!mounted) return;
+    setState(() => _submitting = true);
     final newTicket = TicketEntity(
-      id: 'TKT-${(DateTime.now().millisecondsSinceEpoch % 10000).toString().padLeft(3, '0')}',
+      id:
+          'TKT-${(DateTime.now().millisecondsSinceEpoch % 10000).toString().padLeft(3, '0')}',
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
       status: TicketStatus.open,
@@ -55,7 +198,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
       createdBy: user.name,
       category: _selectedCategory,
       comments: [],
-      imageUrl: _hasImage ? 'https://picsum.photos/seed/${DateTime.now().millisecond}/400/300' : null,
+      imageUrl: imageUrl,
     );
 
     final created = await ref.read(addTicketUseCaseProvider)(newTicket);
@@ -64,9 +207,40 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
     ref.invalidate(ticketStatsProvider);
 
     if (!mounted) return;
-    setState(() => _isSubmitting = false);
+    setState(() {
+      _submitting = false;
+      _pickedBytes = null;
+      _pickedFileName = null;
+    });
 
-    // Show success
+    _showSuccessDialog(created);
+  }
+
+  Future<void> _showUploadRetryDialog(StorageUploadException e) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Upload foto gagal'),
+        content: Text('${e.message}\n\nCoba unggah ulang?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Coba lagi'),
+          ),
+        ],
+      ),
+    );
+    if (result == true && mounted) {
+      await _submitTicket();
+    }
+  }
+
+  void _showSuccessDialog(TicketEntity created) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -122,6 +296,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
     );
   }
 
+  // --------------------------------------------------------- build
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -152,7 +328,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.lock_outline_rounded, size: 56, color: Colors.grey),
+                const Icon(Icons.lock_outline_rounded,
+                    size: 56, color: Colors.grey),
                 const SizedBox(height: 12),
                 const Text(
                   'Hanya user yang dapat membuat tiket',
@@ -178,6 +355,13 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
       );
     }
 
+    // Web fallback: hide the camera button (no native camera on
+    // laptop browsers). The gallery button still works via the
+    // <input type="file"> shim that `image_picker` injects.
+    final showCamera = !kIsWeb;
+
+    final canSubmit = !_submitting && !_uploading && !_picking;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Buat Tiket Baru')),
       body: Form(
@@ -194,8 +378,9 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                 hintText: 'Contoh: Laptop tidak bisa menyala',
                 prefixIcon: Icon(Icons.title_rounded),
               ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Judul tidak boleh kosong' : null,
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Judul tidak boleh kosong'
+                  : null,
               maxLength: 100,
             ).animate().fadeIn(delay: 100.ms),
             const SizedBox(height: 16),
@@ -255,112 +440,9 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
             // Attachment
             _SectionHeader(label: 'Lampiran (Opsional)', isDark: isDark),
             const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () => setState(() => _hasImage = !_hasImage),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                height: _hasImage ? 160 : 100,
-                decoration: BoxDecoration(
-                  color: _hasImage
-                      ? AppColors.statusDoneBg
-                      : isDark
-                          ? AppColors.cardDark
-                          : const Color(0xFFF1F5FB),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _hasImage
-                        ? AppColors.statusDone
-                        : isDark
-                            ? const Color(0xFF2D3F55)
-                            : const Color(0xFFE8EDF5),
-                    style: _hasImage ? BorderStyle.solid : BorderStyle.none,
-                  ),
-                ),
-                child: _hasImage
-                    ? Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.network(
-                              'https://picsum.photos/seed/attach/400/200',
-                              width: double.infinity,
-                              height: 160,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: GestureDetector(
-                              onTap: () => setState(() => _hasImage = false),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.close,
-                                    color: Colors.white, size: 16),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 8,
-                            left: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.image_outlined,
-                                      color: Colors.white, size: 12),
-                                  SizedBox(width: 4),
-                                  Text('preview_image.jpg',
-                                      style: TextStyle(
-                                          color: Colors.white, fontSize: 11)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.cloud_upload_outlined,
-                            size: 28,
-                            color: isDark
-                                ? const Color(0xFF64748B)
-                                : const Color(0xFF94A3B8),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap untuk upload foto/file',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark
-                                  ? const Color(0xFF64748B)
-                                  : const Color(0xFF94A3B8),
-                            ),
-                          ),
-                          Text(
-                            'JPG, PNG, PDF (maks. 10MB)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark
-                                  ? const Color(0xFF475569)
-                                  : const Color(0xFFB0BAC9),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ).animate().fadeIn(delay: 250.ms),
+            _buildAttachmentArea(isDark, showCamera)
+                .animate()
+                .fadeIn(delay: 250.ms),
             const SizedBox(height: 32),
 
             // Submit button
@@ -368,8 +450,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: _isSubmitting ? null : _submitTicket,
-                icon: _isSubmitting
+                onPressed: canSubmit ? _submitTicket : null,
+                icon: _submitting || _uploading
                     ? const SizedBox(
                         height: 18,
                         width: 18,
@@ -379,12 +461,232 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                                 AlwaysStoppedAnimation<Color>(Colors.white)),
                       )
                     : const Icon(Icons.send_rounded, size: 18),
-                label: Text(_isSubmitting ? 'Mengirim...' : 'Kirim Tiket'),
+                label: Text(
+                  _uploading
+                      ? 'Mengunggah foto...'
+                      : _submitting
+                          ? 'Mengirim tiket...'
+                          : 'Kirim Tiket',
+                ),
               ),
             ).animate().fadeIn(delay: 300.ms),
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentArea(bool isDark, bool showCamera) {
+    if (_pickedBytes != null) {
+      // Preview of the picked image with a "remove" affordance.
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        height: 200,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.cardDark : const Color(0xFFF1F5FB),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Image.memory(
+                  _pickedBytes!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            // File-name pill (bottom-left)
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.55),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.image_outlined,
+                        color: Colors.white, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      _pickedFileName ?? 'photo.jpg',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 11),
+                    ),
+                    if (_pickedBytes != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '(${(int.parse((_pickedBytes!.length / 1024).toStringAsFixed(0)))} KB)',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 10),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            // "Remove" button (top-right)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: _clearPicked,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close,
+                      color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+            // "Re-pick" overlay (small, bottom-right)
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showCamera)
+                    _PillButton(
+                      icon: Icons.photo_camera_outlined,
+                      label: 'Kamera',
+                      onTap: _picking ? null : _pickFromCamera,
+                    ),
+                  const SizedBox(width: 6),
+                  _PillButton(
+                    icon: Icons.photo_library_outlined,
+                    label: 'Galeri',
+                    onTap: _picking ? null : _pickFromGallery,
+                  ),
+                ],
+              ),
+            ),
+            // Spinner while the OS sheet is open
+            if (_picking)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x66000000),
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Empty state: two CTAs (camera + gallery).
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.cardDark : const Color(0xFFF1F5FB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.add_a_photo_outlined,
+                size: 20,
+                color:
+                    isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Lampirkan foto (opsional)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'JPG atau PNG, maks 5 MB',
+            style: TextStyle(
+              fontSize: 11,
+              color:
+                  isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              if (showCamera)
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _picking ? null : _pickFromCamera,
+                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    label: const Text('Ambil Foto'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              if (showCamera) const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _picking ? null : _pickFromGallery,
+                  icon: const Icon(Icons.photo_library_outlined, size: 18),
+                  label: const Text('Galeri'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: BorderSide(
+                      color: AppColors.primary.withOpacity(0.5),
+                    ),
+                    foregroundColor: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_picking) ...[
+            const SizedBox(height: 12),
+            const Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 8),
+                Text('Membuka...', style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -403,6 +705,43 @@ class _SectionHeader extends StatelessWidget {
         fontSize: 14,
         fontWeight: FontWeight.w700,
         color: isDark ? Colors.white : const Color(0xFF0F172A),
+      ),
+    );
+  }
+}
+
+class _PillButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  const _PillButton({required this.icon, required this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withOpacity(0.55),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

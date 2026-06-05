@@ -156,6 +156,18 @@ class TicketDataSource {
         .timeout(const Duration(seconds: 8));
   }
 
+  /// Look up a profile's uuid by `name`. Returns `null` if no
+  /// row matches. Used by `assignTicket` as the second fallback
+  /// (after `username`).
+  Future<String?> _lookupProfileIdByName(String name) async {
+    final row = await _client
+        .from('profiles')
+        .select('id')
+        .eq('name', name)
+        .maybeSingle();
+    return row?['id'] as String?;
+  }
+
   /// Assign a ticket to a helpdesk user.
   ///
   /// [ticketId] can be either the public `ticket_code` or the row's uuid.
@@ -176,24 +188,18 @@ class TicketDataSource {
       // Already a uuid
       userId = assignedTo;
     } else {
-      // Try by username first, then by name
+      // Try by username first, then by name. Each lookup returns
+      // `null` if the row doesn't exist, so a `null` userId at
+      // the end is a real "not found" condition.
       final byUsername = await _client
           .from('profiles')
           .select('id')
           .eq('username', assignedTo)
           .maybeSingle();
-      if (byUsername != null) {
-        userId = byUsername['id'] as String;
-      } else {
-        final byName = await _client
-            .from('profiles')
-            .select('id')
-            .eq('name', assignedTo)
-            .maybeSingle();
-        userId = byName?['id'] as String;
-      }
+      userId = byUsername?['id'] as String?;
+      userId ??= await _lookupProfileIdByName(assignedTo);
     }
-    if (userId == null) {
+    if (userId == null || userId.isEmpty) {
       throw FormatException(
         'assignTicket: no profile matched "$assignedTo"',
       );

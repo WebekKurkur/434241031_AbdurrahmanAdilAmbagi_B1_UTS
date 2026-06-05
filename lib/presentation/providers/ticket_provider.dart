@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/network/storage_helper.dart';
 import '../../core/network/supabase_providers.dart';
 import '../../data/datasources/ticket_datasource.dart';
 import '../../data/repositories/ticket_repository_impl.dart';
@@ -15,6 +16,7 @@ import '../../domain/usecases/ticket/add_ticket_usecase.dart';
 import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
 import '../../domain/usecases/ticket/get_tickets_usecase.dart';
 import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
+import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
 import 'auth_provider.dart';
 
 // Data Sources
@@ -23,7 +25,8 @@ final ticketDataSourceProvider = Provider((ref) => TicketDataSource());
 // Repositories
 final ticketRepositoryProvider = Provider<TicketRepository>((ref) {
   final dataSource = ref.watch(ticketDataSourceProvider);
-  return TicketRepositoryImpl(dataSource);
+  final storage = ref.watch(storageHelperProvider);
+  return TicketRepositoryImpl(dataSource, storage);
 });
 
 // Use Cases
@@ -50,6 +53,11 @@ final assignTicketUseCaseProvider = Provider((ref) {
 final addCommentUseCaseProvider = Provider((ref) {
   final repository = ref.watch(ticketRepositoryProvider);
   return AddCommentUseCase(repository);
+});
+
+final uploadTicketImageUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(ticketRepositoryProvider);
+  return UploadTicketImageUseCase(repository);
 });
 
 // All Tickets

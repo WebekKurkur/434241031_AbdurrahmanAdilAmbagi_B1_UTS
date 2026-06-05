@@ -44,11 +44,14 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# docs
-ignore
-
-# environment
+# Local env files (secrets)
 .env
+.env.*.local
+.env.example
 
 # supabase
 supabase
+
+# docs 
+ignore
+

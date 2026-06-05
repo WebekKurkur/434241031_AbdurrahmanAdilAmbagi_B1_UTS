@@ -1,9 +1,9 @@
-// lib/screens/login_screen.dart
+// lib/presentation/screens/login_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../presentation/providers/auth_provider.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -65,9 +65,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (success) {
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        setState(
-            () => _errorMessage =
-                'Username atau password salah. (hint: password = "password")');
+        setState(() => _errorMessage =
+            'Username atau password salah. (Default password: "password")');
       }
     }
   }
@@ -332,7 +331,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Demo: username = role pilihan, password = "password"',
+                                  'Pilih role untuk login cepat. Password default: "password".',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.primary.withOpacity(0.8),

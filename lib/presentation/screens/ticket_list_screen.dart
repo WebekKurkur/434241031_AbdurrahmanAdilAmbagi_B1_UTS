@@ -1,10 +1,10 @@
-// lib/screens/ticket_list_screen.dart
+// lib/presentation/screens/ticket_list_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../presentation/providers/ticket_provider.dart';
-import '../domain/entities/ticket_entity.dart';
+import '../providers/ticket_provider.dart';
+import '../../domain/entities/ticket_entity.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ticket_card.dart';
 import '../widgets/shimmer_card.dart';

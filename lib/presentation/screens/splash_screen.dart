@@ -1,25 +1,62 @@
-// lib/screens/splash_screen.dart
+// lib/presentation/screens/splash_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SplashScreen extends StatefulWidget {
+import '../../core/network/connection_test.dart';
+import '../providers/auth_provider.dart';
+
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 2800), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
-    });
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    // Show splash for at least 1.2s for the animation, then wait for
+    // the Supabase probe AND the profile hydration to finish.
+    // The profile lookup is what makes cold-start navigation work:
+    // if a valid session is in `flutter_secure_storage`, we land on
+    // `/home`; otherwise we land on `/login`.
+    //
+    // We use `.valueOrNull` instead of `.future` for the providers
+    // so that an error state on either one returns `null` rather
+    // than rejecting. This means the splash ALWAYS navigates
+    // somewhere — no matter what happens with the network.
+    try {
+      await Future.delayed(const Duration(milliseconds: 1200));
+      final status =
+          ref.read(connectionStatusProvider).valueOrNull;
+      final profile =
+          ref.read(currentProfileProvider).valueOrNull;
+      final profileStr = profile != null ? 'restored' : 'none';
+      final statusStr = status != null
+          ? '${status.ok ? "OK" : "FAIL"} — ${status.message}'
+              '${status.profilesCount != null ? " (profiles=${status.profilesCount})" : ""}'
+          : 'no-status';
+      debugPrint('[Supabase] $statusStr | session=$profileStr');
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+        context,
+        profile != null ? '/home' : '/login',
+      );
+    } catch (e, st) {
+      // Last-resort safety net: if anything goes wrong (e.g. the
+      // router is gone, a provider throws synchronously, etc.) we
+      // still navigate to /login so the user is never stuck.
+      debugPrint('[Splash] boot error: $e\n$st');
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override

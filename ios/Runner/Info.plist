@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Helpdesk menggunakan kamera untuk mengambil foto laporan tiket.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Helpdesk mengakses galeri untuk melampirkan foto pada laporan tiket.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

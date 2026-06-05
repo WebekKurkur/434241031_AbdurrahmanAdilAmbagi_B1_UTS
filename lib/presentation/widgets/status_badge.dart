@@ -1,7 +1,7 @@
-// lib/widgets/status_badge.dart
+// lib/presentation/widgets/status_badge.dart
 
 import 'package:flutter/material.dart';
-import '../domain/entities/ticket_entity.dart';
+import '../../domain/entities/ticket_entity.dart';
 import '../theme/app_theme.dart';
 
 class StatusBadge extends StatelessWidget {

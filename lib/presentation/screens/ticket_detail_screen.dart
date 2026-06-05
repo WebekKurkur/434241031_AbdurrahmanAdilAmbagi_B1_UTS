@@ -1,13 +1,16 @@
-// lib/screens/ticket_detail_screen.dart
+// lib/presentation/screens/ticket_detail_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../presentation/providers/auth_provider.dart';
-import '../presentation/providers/ticket_provider.dart';
-import '../domain/entities/ticket_entity.dart';
-import '../domain/entities/user_entity.dart';
+import '../providers/auth_provider.dart';
+import '../providers/ticket_provider.dart';
+import '../../domain/entities/ticket_entity.dart';
+import '../../domain/entities/user_entity.dart';
+import '../../domain/usecases/ticket/add_comment_usecase.dart';
+import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
+import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
 import '../theme/app_theme.dart';
 import '../widgets/status_badge.dart';
 
@@ -34,12 +37,26 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    await ref.read(addCommentUseCaseProvider)(
-          widget.ticketId,
-          text,
-          user.name,
-          user.role,
-        );
+    try {
+      await ref.read(addCommentUseCaseProvider)(
+        AddCommentParams(
+          ticketId: widget.ticketId,
+          message: text,
+          author: user.name,
+          role: user.role,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal kirim komentar: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
     ref.invalidate(ticketStatsProvider);
@@ -60,113 +77,269 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
   void _showStatusSheet(BuildContext context, TicketEntity ticket) {
     showModalBottomSheet(
       context: context,
+      isDismissible: false, // prevent tap-outside during the call
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Update Status',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A))),
-              const SizedBox(height: 16),
-              ...TicketStatus.values.map((status) {
-                final isSelected = ticket.status == status;
-                return ListTile(
-                  leading: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: getStatusColor(status),
-                      shape: BoxShape.circle,
-                    ),
+      builder: (sheetContext) {
+        bool busy = false;
+        return StatefulBuilder(
+          builder: (innerContext, setSheetState) {
+            final isDark = Theme.of(innerContext).brightness == Brightness.dark;
+            return Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('Update Status',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A))),
+                      const Spacer(),
+                      if (busy)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
                   ),
-                  title: Text(getStatusLabel(status),
-                      style: const TextStyle(fontWeight: FontWeight.w500)),
-                  trailing: isSelected
-                      ? Icon(Icons.check_rounded, color: AppColors.primary)
-                      : null,
-                  onTap: () async {
-                    await ref.read(updateTicketStatusUseCaseProvider)(
-                          ticket.id,
-                          status,
-                        );
-                    ref.invalidate(allTicketsProvider);
-                    ref.invalidate(userTicketsProvider);
-                    ref.invalidate(ticketStatsProvider);
-                    ref.invalidate(ticketByIdProvider(ticket.id));
-                    if (!mounted) return;
-                    Navigator.pop(context);
-                  },
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
-          ),
+                  const SizedBox(height: 16),
+                  ...TicketStatus.values.map((status) {
+                    final isSelected = ticket.status == status;
+                    return ListTile(
+                      enabled: !busy,
+                      leading: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: getStatusColor(status),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      title: Text(getStatusLabel(status),
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w500)),
+                      trailing: isSelected
+                          ? Icon(Icons.check_rounded,
+                              color: AppColors.primary)
+                          : null,
+                      onTap: busy
+                          ? null
+                          : () async {
+                              setSheetState(() => busy = true);
+                              try {
+                                await ref
+                                    .read(updateTicketStatusUseCaseProvider)(
+                                  UpdateTicketStatusParams(
+                                    ticketId: ticket.id,
+                                    status: status,
+                                  ),
+                                );
+                                ref.invalidate(allTicketsProvider);
+                                ref.invalidate(userTicketsProvider);
+                                ref.invalidate(ticketStatsProvider);
+                                ref.invalidate(
+                                    ticketByIdProvider(ticket.id));
+                                if (!mounted) return;
+                                Navigator.pop(sheetContext);
+                              } catch (e) {
+                                if (sheetContext.mounted) {
+                                  setSheetState(() => busy = false);
+                                }
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Gagal update status: $e'),
+                                    backgroundColor: Colors.red,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
         );
       },
     );
   }
 
   void _showAssignSheet(BuildContext context, TicketEntity ticket) {
-    final helpdeskUsers = ['Budi Santoso', 'Dewi Rahayu', 'Eko Prasetyo'];
     showModalBottomSheet(
       context: context,
+      isDismissible: false, // prevent tap-outside during the call
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Assign ke',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A))),
-              const SizedBox(height: 16),
-              ...helpdeskUsers.map((name) {
-                final isSelected = ticket.assignedTo == name;
-                return ListTile(
-                  leading: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
-                    child: Text(
-                      name[0],
-                      style: const TextStyle(
-                          color: AppColors.primary, fontWeight: FontWeight.w700),
+      builder: (sheetContext) {
+        // Local busy state for the sheet. We use a StatefulBuilder
+        // so the spinner is visible while the assign is in flight
+        // (otherwise the user just sees a frozen sheet and thinks
+        // the app is "buffering").
+        bool busy = false;
+        return StatefulBuilder(
+          builder: (innerContext, setSheetState) {
+            final isDark = Theme.of(innerContext).brightness == Brightness.dark;
+            final helpdeskAsync = ref.watch(helpdeskUsersProvider);
+            return Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('Assign ke',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A))),
+                      const Spacer(),
+                      if (busy)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  helpdeskAsync.when(
+                    data: (users) {
+                      if (users.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text(
+                              'Belum ada user helpdesk',
+                              style: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: users.map((u) {
+                          // `ticket.assignedTo` is the join's name field
+                          // (e.g. "Budi Santoso"). Match by name OR by id
+                          // in case the join ever changes.
+                          final isSelected = ticket.assignedTo == u.name ||
+                              ticket.assignedTo == u.username;
+                          return ListTile(
+                            enabled: !busy,
+                            leading: CircleAvatar(
+                              radius: 16,
+                              backgroundColor:
+                                  AppColors.primary.withOpacity(0.1),
+                              child: Text(
+                                u.name.isNotEmpty ? u.name[0] : '?',
+                                style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            title: Text(u.name),
+                            subtitle: u.department.isNotEmpty
+                                ? Text(
+                                    u.department,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark
+                                          ? const Color(0xFF64748B)
+                                          : const Color(0xFF94A3B8),
+                                    ),
+                                  )
+                                : null,
+                            trailing: isSelected
+                                ? const Icon(Icons.check_rounded,
+                                    color: AppColors.primary)
+                                : null,
+                            onTap: busy
+                                ? null
+                                : () async {
+                                    setSheetState(() => busy = true);
+                                    try {
+                                      await ref
+                                          .read(assignTicketUseCaseProvider)(
+                                        AssignTicketParams(
+                                          ticketId: ticket.id,
+                                          // Pass the public `name`. The
+                                          // data source resolves it to a
+                                          // uuid before writing.
+                                          assignedTo: u.name,
+                                        ),
+                                      );
+                                      ref.invalidate(allTicketsProvider);
+                                      ref.invalidate(userTicketsProvider);
+                                      ref.invalidate(ticketStatsProvider);
+                                      ref.invalidate(
+                                          ticketByIdProvider(ticket.id));
+                                      ref.invalidate(helpdeskUsersProvider);
+                                      if (!mounted) return;
+                                      Navigator.pop(sheetContext);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Tiket di-assign ke ${u.name}'),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      // Reset the busy flag so the user
+                                      // can try again.
+                                      if (sheetContext.mounted) {
+                                        setSheetState(() => busy = false);
+                                      }
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Gagal assign: $e'),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  },
+                          );
+                        }).toList(),
+                      );
+                    },
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (err, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text('Gagal memuat helpdesk: $err'),
+                      ),
                     ),
                   ),
-                  title: Text(name),
-                  trailing: isSelected
-                      ? const Icon(Icons.check_rounded,
-                          color: AppColors.primary)
-                      : null,
-                  onTap: () async {
-                    await ref.read(assignTicketUseCaseProvider)(ticket.id, name);
-                    ref.invalidate(allTicketsProvider);
-                    ref.invalidate(userTicketsProvider);
-                    ref.invalidate(ticketStatsProvider);
-                    ref.invalidate(ticketByIdProvider(ticket.id));
-                    if (!mounted) return;
-                    Navigator.pop(context);
-                  },
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
-          ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -188,8 +361,38 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => const Scaffold(
-        body: Center(child: Text('Gagal memuat tiket')),
+      error: (err, st) => Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline_rounded,
+                    size: 56, color: Colors.red.shade300),
+                const SizedBox(height: 12),
+                const Text(
+                  'Gagal memuat tiket',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$err',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(ticketByIdProvider(widget.ticketId)),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Coba lagi'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       data: (ticket) {
         if (ticket == null) {

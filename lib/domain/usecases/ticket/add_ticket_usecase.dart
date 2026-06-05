@@ -2,13 +2,15 @@
 
 import '../../repositories/ticket_repository.dart';
 import '../../entities/ticket_entity.dart';
+import '../../../core/usecases/usecase.dart';
 
-class AddTicketUseCase {
+class AddTicketUseCase implements UseCase<TicketEntity, TicketEntity> {
   final TicketRepository repository;
 
   AddTicketUseCase(this.repository);
 
-  Future<void> call(TicketEntity ticket) async {
-    return await repository.addTicket(ticket);
+  @override
+  Future<TicketEntity> call(TicketEntity params) async {
+    return await repository.addTicket(params);
   }
 }

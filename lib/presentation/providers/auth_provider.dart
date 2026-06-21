@@ -76,6 +76,13 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
     return false;
   }
 
+  /// Sign the current user out and clear local state.
+  ///
+  /// Awaits the underlying `supabase.auth.signOut()` call and only
+  /// nulls the state on success. If `signOut` throws (network drop,
+  /// no session, etc.) the exception propagates to the caller so the
+  /// UI can show a snackbar instead of silently routing the user to
+  /// `/login` while the session is still alive on the server.
   Future<void> logout() async {
     await logoutUseCase();
     if (!mounted) return;

@@ -115,7 +115,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
@@ -140,7 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             'E-Ticketing System',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.white.withOpacity(0.75),
+                              color: Colors.white.withValues(alpha: 0.75),
                             ),
                           ),
                         ],
@@ -155,7 +155,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -212,7 +212,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       vertical: 10, horizontal: 8),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? AppColors.primary.withOpacity(0.1)
+                                        ? AppColors.primary.withValues(alpha: 0.1)
                                         : isDark
                                             ? const Color(0xFF1E293B)
                                             : const Color(0xFFF1F5FB),
@@ -320,21 +320,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.07),
+                            color: AppColors.primary.withValues(alpha: 0.07),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             children: [
                               Icon(Icons.info_outline,
                                   size: 15,
-                                  color: AppColors.primary.withOpacity(0.7)),
+                                  color: AppColors.primary.withValues(alpha: 0.7)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'Pilih role untuk login cepat. Password default: "password".',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.primary.withOpacity(0.8),
+                                    color: AppColors.primary.withValues(alpha: 0.8),
                                   ),
                                 ),
                               ),

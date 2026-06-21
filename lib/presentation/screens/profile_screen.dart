@@ -91,7 +91,14 @@ class ProfileScreen extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.settings_outlined,
                                 color: Colors.white),
-                            onPressed: () {},
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Settings — coming soon'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -128,7 +135,7 @@ class ProfileScreen extends ConsumerWidget {
                               width: 22,
                               height: 22,
                               decoration: BoxDecoration(
-                                color: AppColors.statusDone,
+                                color: AppColors.statusClosed,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 2),
                               ),
@@ -201,11 +208,14 @@ class ProfileScreen extends ConsumerWidget {
                     open: tickets
                         .where((t) => t.status == TicketStatus.open)
                         .length,
+                    assigned: tickets
+                        .where((t) => t.status == TicketStatus.assigned)
+                        .length,
                     progress: tickets
                         .where((t) => t.status == TicketStatus.inProgress)
                         .length,
-                    done: tickets
-                        .where((t) => t.status == TicketStatus.done)
+                    closed: tickets
+                        .where((t) => t.status == TicketStatus.closed)
                         .length,
                   );
                   return Row(
@@ -231,9 +241,9 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       _divider(),
                       _StatItem(
-                        value: stats.done.toString(),
-                        label: 'Selesai',
-                        color: AppColors.statusDone,
+                        value: stats.closed.toString(),
+                        label: 'Closed',
+                        color: AppColors.statusClosed,
                         isDark: isDark,
                       ),
                     ],
@@ -369,7 +379,7 @@ class ProfileScreen extends ConsumerWidget {
                               value: isDark,
                               onChanged: (_) =>
                                   ref.read(themeProvider.notifier).toggle(),
-                              activeColor: AppColors.primary,
+                              activeThumbColor: AppColors.primary,
                             ),
                           ],
                         ),
@@ -383,7 +393,14 @@ class ProfileScreen extends ConsumerWidget {
                         icon: Icons.notifications_outlined,
                         label: 'Notifikasi',
                         isDark: isDark,
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Notifikasi — coming soon'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                       Divider(
                           height: 1,
@@ -394,7 +411,14 @@ class ProfileScreen extends ConsumerWidget {
                         icon: Icons.lock_outline_rounded,
                         label: 'Ganti Password',
                         isDark: isDark,
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Ganti Password — coming soon'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                       Divider(
                           height: 1,
@@ -405,7 +429,14 @@ class ProfileScreen extends ConsumerWidget {
                         icon: Icons.help_outline_rounded,
                         label: 'Bantuan',
                         isDark: isDark,
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Bantuan — coming soon'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
                       ),
                     ],
                     isDark: isDark,
@@ -421,32 +452,86 @@ class ProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
               child: OutlinedButton.icon(
                 onPressed: () {
+                  // Local state for the confirmation dialog: tracks
+                  // whether the signOut round-trip is in flight so
+                  // we can show a spinner and disable the buttons
+                  // (no double-tap) instead of routing to /login
+                  // before the request completes.
+                  bool busy = false;
                   showDialog(
                     context: context,
-                    builder: (_) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      title: const Text('Logout'),
-                      content: const Text(
-                          'Apakah Anda yakin ingin keluar dari aplikasi?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Batal'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            ref.read(currentUserProvider.notifier).logout();
-                            Navigator.pushNamedAndRemoveUntil(
-                                context, '/login', (_) => false);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.statusOpen,
-                          ),
-                          child: const Text('Keluar'),
-                        ),
-                      ],
-                    ),
+                    barrierDismissible: true,
+                    builder: (dialogCtx) {
+                      return StatefulBuilder(
+                        builder: (sbCtx, setLocal) {
+                          return AlertDialog(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                            title: const Text('Logout'),
+                            content: const Text(
+                                'Apakah Anda yakin ingin keluar dari aplikasi?'),
+                            actions: [
+                              TextButton(
+                                onPressed: busy
+                                    ? null
+                                    : () => Navigator.pop(dialogCtx),
+                                child: const Text('Batal'),
+                              ),
+                              ElevatedButton(
+                                onPressed: busy
+                                    ? null
+                                    : () async {
+                                        setLocal(() => busy = true);
+                                        try {
+                                          await ref
+                                              .read(currentUserProvider
+                                                  .notifier)
+                                              .logout();
+                                          if (!dialogCtx.mounted) return;
+                                          // Close the dialog and route
+                                          // to /login. Use the dialog's
+                                          // own Navigator.pop so the
+                                          // dismissal animation finishes
+                                          // before we replace the route.
+                                          Navigator.pop(dialogCtx);
+                                          if (!context.mounted) return;
+                                          Navigator.pushNamedAndRemoveUntil(
+                                              context, '/login', (_) => false);
+                                        } catch (e) {
+                                          if (!dialogCtx.mounted) return;
+                                          setLocal(() => busy = false);
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                  'Gagal logout: $e'),
+                                              backgroundColor:
+                                                  AppColors.statusOpen,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.statusOpen,
+                                ),
+                                child: busy
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      )
+                                    : const Text('Keluar'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
                   );
                 },
                 icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF5350)),

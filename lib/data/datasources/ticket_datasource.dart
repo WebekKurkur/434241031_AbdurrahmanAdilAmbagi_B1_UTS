@@ -214,33 +214,36 @@ class TicketDataSource {
 
   /// All users with the helpdesk role. Used by the assign sheet so
   /// the user can pick from real profiles, not a hard-coded list.
+  ///
+  /// Wrapped in an 8-second timeout — if the network hangs (or RLS
+  /// is silently rejecting the read), the assign sheet would
+  /// otherwise show its loading spinner forever, which the user
+  /// experiences as "buffering".
   Future<List<Map<String, dynamic>>> getHelpdeskUsers() async {
     final res = await _client
         .from('profiles')
         .select('id, username, name, role, department')
         .eq('role', 'helpdesk')
-        .order('name', ascending: true);
+        .order('name', ascending: true)
+        .timeout(const Duration(seconds: 8));
     return res.cast<Map<String, dynamic>>();
   }
 
-  /// Resolve a public `ticket_code` (e.g. "TKT-001") to the row's
-  /// uuid primary key. The `comments.ticket_id` column is a uuid FK,
-  /// so any code-shaped value must be translated before insert.
-  Future<String?> _ticketUuidFromCode(String idOrCode) =>
-      _resolveTicketUuid(idOrCode);
-
-  Future<void> addComment(
-      String ticketId, String message, String author, UserRole role) async {
+  Future<void> addComment(String ticketId, String message) async {
     final user = _client.auth.currentUser;
     if (user == null) {
       throw const AuthException('You must be signed in to comment');
     }
-    final ticketUuid = await _ticketUuidFromCode(ticketId);
+    final ticketUuid = await _resolveTicketUuid(ticketId);
     if (ticketUuid == null) {
       throw FormatException(
         'addComment: no ticket with code "$ticketId"',
       );
     }
+    // `author_id` is read from `auth.uid()` server-side via the
+    // `handle_new_user` and RLS policies. The comment is rendered
+    // with author name + role via a `profiles` join on the
+    // read path (see `comments_view` in migration `0001_init.sql`).
     await _client.from('comments').insert({
       'ticket_id': ticketUuid,
       'author_id': user.id,
@@ -266,11 +269,50 @@ class TicketDataSource {
         .from('comments')
         .stream(primaryKey: ['id'])
         .asyncMap((_) async {
-          final uuid = await _ticketUuidFromCode(ticketId);
+          final uuid = await _resolveTicketUuid(ticketId);
           if (uuid == null) return <CommentModel>[];
           final m = await _fetchCommentsForTickets([uuid]);
           return m[uuid] ?? const [];
         });
+  }
+
+  // --------------------------------------------------------- history
+
+  /// One-shot read of the per-ticket history log. Returns rows in
+  /// reverse chronological order (newest first). The caller may
+  /// pass either a public `ticket_code` or the row's uuid.
+  ///
+  /// The table is populated by Postgres triggers in
+  /// `supabase/migrations/0003_ticket_history.sql`. We read the
+  /// joined `actor:actor_id(name)` so the UI can render "Budi
+  /// mengubah status menjadi In Progress" without an extra round-trip.
+  Future<List<TicketHistoryModel>> getTicketHistory(String ticketId) async {
+    final uuid = await _resolveTicketUuid(ticketId);
+    if (uuid == null) return const [];
+    final res = await _client
+        .from('ticket_history')
+        .select('*, actor:actor_id(name)')
+        .eq('ticket_id', uuid)
+        .order('created_at', ascending: false)
+        .timeout(const Duration(seconds: 8));
+    return (res as List)
+        .cast<Map<String, dynamic>>()
+        .map(TicketHistoryModel.fromRow)
+        .toList();
+  }
+
+  /// Realtime stream of the per-ticket history log. Same
+  /// resolution rules as `getTicketHistory`.
+  ///
+  /// The underlying `ticket_history` table is in the
+  /// `supabase_realtime` publication (see the migration), so the
+  /// detail screen's "Riwayat" timeline updates live when another
+  /// user changes the status / assigns / comments.
+  Stream<List<TicketHistoryModel>> watchTicketHistory(String ticketId) {
+    return _client
+        .from('ticket_history')
+        .stream(primaryKey: ['id'])
+        .asyncMap((_) => getTicketHistory(ticketId));
   }
 
   // --------------------------------------------------------- mappers
@@ -309,10 +351,17 @@ class TicketDataSource {
     switch (s) {
       case 'open':
         return TicketStatus.open;
+      case 'assigned':
+        return TicketStatus.assigned;
       case 'inProgress':
         return TicketStatus.inProgress;
+      case 'closed':
+        return TicketStatus.closed;
+      // Defensive back-compat: rows that still have the old 'done'
+      // value (e.g. if the migration was run on a populated DB
+      // before our backfill UPDATE) get mapped to 'closed'.
       case 'done':
-        return TicketStatus.done;
+        return TicketStatus.closed;
       default:
         return TicketStatus.open;
     }

@@ -2,7 +2,17 @@
 
 import 'user_entity.dart';
 
-enum TicketStatus { open, inProgress, done }
+/// Ticket lifecycle states.
+///
+/// Workflow:
+///   open        → user just created it, no helpdesk assigned yet
+///   assigned    → admin picked a helpdesk, work hasn't started
+///   inProgress  → helpdesk is actively working on it
+///   closed      → terminal state (work done, ticket shut)
+///
+/// Matches the `tickets_status_check` constraint in
+/// `supabase/migrations/0002_add_assign_and_closed.sql`.
+enum TicketStatus { open, assigned, inProgress, closed }
 
 class CommentEntity {
   final String id;
@@ -66,4 +76,39 @@ class TicketEntity {
       category: category,
     );
   }
+}
+
+/// One row of the `ticket_history` audit log.
+///
+/// Populated by Postgres triggers on `tickets` (insert/update) and
+/// `comments` (insert). See `supabase/migrations/0003_ticket_history.sql`.
+///
+/// [action] is one of:
+///   - 'created'         — ticket was created
+///   - 'assigned'        — `assigned_to` was changed
+///   - 'status_changed'  — status changed (open/assigned/inProgress)
+///   - 'closed'          — status changed to 'closed' (terminal)
+///   - 'commented'       — a comment was added
+class TicketHistoryEntity {
+  final String id;
+  final String ticketId;
+  final String? actorId;
+  final String? actorName;     // joined from profiles (may be null if user was deleted)
+  final String action;
+  final String? fromValue;
+  final String? toValue;
+  final String? note;
+  final DateTime createdAt;
+
+  const TicketHistoryEntity({
+    required this.id,
+    required this.ticketId,
+    this.actorId,
+    this.actorName,
+    required this.action,
+    this.fromValue,
+    this.toValue,
+    this.note,
+    required this.createdAt,
+  });
 }

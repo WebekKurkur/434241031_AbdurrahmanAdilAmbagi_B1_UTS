@@ -70,13 +70,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildScreen(int index) {
     switch (index) {
       case 0:
-        return const DashboardScreen();
+        return DashboardScreen(
+          onSwitchToTab: (i) => setState(() => _currentIndex = i),
+        );
       case 1:
         return const TicketListScreen();
       case 2:
         return const ProfileScreen();
       default:
-        return const DashboardScreen();
+        return DashboardScreen(
+          onSwitchToTab: (i) => setState(() => _currentIndex = i),
+        );
     }
   }
 

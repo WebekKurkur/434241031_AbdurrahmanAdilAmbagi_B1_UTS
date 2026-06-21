@@ -6,8 +6,8 @@ import 'dart:typed_data';
 
 import '../../core/network/storage_helper.dart';
 import '../../domain/entities/ticket_entity.dart';
-import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/ticket_repository.dart';
+import '../../domain/usecases/ticket/add_ticket_usecase.dart';
 import '../datasources/ticket_datasource.dart';
 
 class TicketRepositoryImpl implements TicketRepository {
@@ -28,12 +28,15 @@ class TicketRepositoryImpl implements TicketRepository {
   }
 
   @override
-  Future<TicketEntity> addTicket(TicketEntity ticket) async {
+  Future<TicketEntity> addTicket(AddTicketParams params) async {
+    // The data source regenerates `ticket_code` and `created_at`
+    // server-side and uses `auth.uid()` for `created_by`, so we
+    // only forward the four user-supplied fields.
     final model = await dataSource.addTicket(
-      title: ticket.title,
-      description: ticket.description,
-      category: ticket.category,
-      imageUrl: ticket.imageUrl,
+      title: params.title,
+      description: params.description,
+      category: params.category,
+      imageUrl: params.imageUrl,
     );
     return model;
   }
@@ -63,13 +66,31 @@ class TicketRepositoryImpl implements TicketRepository {
   }
 
   @override
-  Future<void> addComment(
-    String ticketId,
-    String message,
-    String author,
-    UserRole role,
-  ) async {
-    return await dataSource.addComment(ticketId, message, author, role);
+  Future<void> addComment(String ticketId, String message) async {
+    // The data source pulls `author_id` from `auth.uid()` server-
+    // side; we deliberately do not pass a client-supplied author
+    // or role here.
+    await dataSource.addComment(ticketId, message);
+  }
+
+  @override
+  Stream<List<CommentEntity>> watchComments(String ticketId) {
+    // The data source yields `CommentModel` (a `CommentEntity`
+    // subclass). The stream already handles the initial fetch
+    // (re-emits the current list on every `comments` table
+    // change) so the consumer doesn't need to seed it.
+    return dataSource.watchComments(ticketId);
+  }
+
+  @override
+  Future<List<TicketHistoryEntity>> getTicketHistory(String ticketId) async {
+    final models = await dataSource.getTicketHistory(ticketId);
+    return models.cast<TicketHistoryEntity>();
+  }
+
+  @override
+  Stream<List<TicketHistoryEntity>> watchTicketHistory(String ticketId) {
+    return dataSource.watchTicketHistory(ticketId);
   }
 
   @override

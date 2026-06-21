@@ -98,3 +98,38 @@ class TicketModel extends TicketEntity {
     );
   }
 }
+
+/// Data-layer wrapper for `TicketHistoryEntity`.
+///
+/// Built from a `ticket_history` row joined with `profiles` for the
+/// actor's display name.
+class TicketHistoryModel extends TicketHistoryEntity {
+  const TicketHistoryModel({
+    required super.id,
+    required super.ticketId,
+    super.actorId,
+    super.actorName,
+    required super.action,
+    super.fromValue,
+    super.toValue,
+    super.note,
+    required super.createdAt,
+  });
+
+  factory TicketHistoryModel.fromRow(Map<String, dynamic> row) {
+    // The join: `actor:actor_id(name)`. If the actor was deleted
+    // (cascade set null), `row['actor']` is null.
+    final actor = row['actor'] as Map<String, dynamic>?;
+    return TicketHistoryModel(
+      id: row['id'] as String,
+      ticketId: row['ticket_id'] as String,
+      actorId: row['actor_id'] as String?,
+      actorName: actor?['name'] as String?,
+      action: row['action'] as String,
+      fromValue: row['from_value'] as String?,
+      toValue: row['to_value'] as String?,
+      note: row['note'] as String?,
+      createdAt: DateTime.parse(row['created_at'] as String),
+    );
+  }
+}

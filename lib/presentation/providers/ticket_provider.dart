@@ -14,6 +14,7 @@ import '../../domain/repositories/ticket_repository.dart';
 import '../../domain/usecases/ticket/add_comment_usecase.dart';
 import '../../domain/usecases/ticket/add_ticket_usecase.dart';
 import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
+import '../../domain/usecases/ticket/get_ticket_history_usecase.dart';
 import '../../domain/usecases/ticket/get_tickets_usecase.dart';
 import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
 import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
@@ -58,6 +59,11 @@ final addCommentUseCaseProvider = Provider((ref) {
 final uploadTicketImageUseCaseProvider = Provider((ref) {
   final repository = ref.watch(ticketRepositoryProvider);
   return UploadTicketImageUseCase(repository);
+});
+
+final getTicketHistoryUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(ticketRepositoryProvider);
+  return GetTicketHistoryUseCase(repository);
 });
 
 // All Tickets
@@ -173,14 +179,22 @@ final ticketDbStatusProvider =
 });
 
 // Ticket Stats
+//
+// 5 fields, matching SRS v2.0.0 §3.4 FR-009:
+//   - total      — all tickets in the role-scoped view
+//   - open       — newly created, no helpdesk assigned
+//   - assigned   — admin picked a helpdesk, work not started
+//   - inProgress — helpdesk is actively working
+//   - closed     — terminal state
 final ticketStatsProvider = FutureProvider((ref) async {
   final tickets = await ref.watch(userTicketsProvider.future);
   return (
     total: tickets.length,
     open: tickets.where((t) => t.status == TicketStatus.open).length,
+    assigned: tickets.where((t) => t.status == TicketStatus.assigned).length,
     inProgress:
         tickets.where((t) => t.status == TicketStatus.inProgress).length,
-    done: tickets.where((t) => t.status == TicketStatus.done).length,
+    closed: tickets.where((t) => t.status == TicketStatus.closed).length,
   );
 });
 
@@ -189,6 +203,37 @@ final ticketByIdProvider =
     FutureProvider.family<TicketEntity?, String>((ref, id) async {
   final repository = ref.watch(ticketRepositoryProvider);
   return await repository.getTicketById(id);
+});
+
+/// Realtime stream of comments for one ticket, keyed by the public
+/// `ticket_code` (e.g. "TKT-001") or the row uuid.
+///
+/// The underlying repository stream re-emits on every Supabase
+/// `comments` table event, so the detail screen sees new comments
+/// posted by other users without needing to pull-to-refresh.
+///
+/// Marked `autoDispose` so a closed detail screen cancels its
+/// realtime subscription and frees the socket.
+final commentsStreamProvider = StreamProvider.autoDispose
+    .family<List<CommentEntity>, String>((ref, ticketId) {
+  final repository = ref.watch(ticketRepositoryProvider);
+  return repository.watchComments(ticketId);
+});
+
+/// Realtime stream of the per-ticket audit log
+/// (`ticket_history` table), keyed by the public `ticket_code`
+/// or the row uuid.
+///
+/// Emits the current list on subscription AND on every history
+/// row change. The `ticket_history` rows are inserted by Postgres
+/// triggers in `0003_ticket_history.sql` (on ticket create /
+/// status change / assignment change / comment), so the stream
+/// is the canonical "live activity feed" for a ticket (FR-010
+/// Riwayat, FR-011 Tracking, BR-005 History Service).
+final ticketHistoryStreamProvider = StreamProvider.autoDispose
+    .family<List<TicketHistoryEntity>, String>((ref, ticketId) {
+  final repository = ref.watch(ticketRepositoryProvider);
+  return repository.watchTicketHistory(ticketId);
 });
 
 /// All helpdesk users (for the assign sheet). Refreshed on demand

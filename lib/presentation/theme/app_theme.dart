@@ -13,10 +13,20 @@ class AppColors {
 
   static const statusOpen = Color(0xFFEF5350);
   static const statusOpenBg = Color(0xFFFFEBEE);
+  // "Assigned" = admin picked a helpdesk, work not yet started.
+  // Indigo/violet to differentiate from the orange "in progress".
+  static const statusAssigned = Color(0xFF6366F1);
+  static const statusAssignedBg = Color(0xFFEEF2FF);
   static const statusInProgress = Color(0xFFFF9800);
   static const statusInProgressBg = Color(0xFFFFF3E0);
-  static const statusDone = Color(0xFF43A047);
-  static const statusDoneBg = Color(0xFFE8F5E9);
+  // "Closed" replaces the old "done" — terminal state, ticket shut.
+  static const statusClosed = Color(0xFF43A047);
+  static const statusClosedBg = Color(0xFFE8F5E9);
+  // Aliases kept so any existing call sites / docs that still
+  // reference the old `statusDone` constants don't break. (Will
+  // be removed in a later cleanup pass once we grep for orphans.)
+  static const statusDone = statusClosed;
+  static const statusDoneBg = statusClosedBg;
 
   static const surface = Color(0xFFF8FAFF);
   static const surfaceDark = Color(0xFF121926);
@@ -136,24 +146,27 @@ class AppTheme {
 Color getStatusColor(TicketStatus status) {
   switch (status) {
     case TicketStatus.open: return AppColors.statusOpen;
+    case TicketStatus.assigned: return AppColors.statusAssigned;
     case TicketStatus.inProgress: return AppColors.statusInProgress;
-    case TicketStatus.done: return AppColors.statusDone;
+    case TicketStatus.closed: return AppColors.statusClosed;
   }
 }
 
 Color getStatusBgColor(TicketStatus status) {
   switch (status) {
     case TicketStatus.open: return AppColors.statusOpenBg;
+    case TicketStatus.assigned: return AppColors.statusAssignedBg;
     case TicketStatus.inProgress: return AppColors.statusInProgressBg;
-    case TicketStatus.done: return AppColors.statusDoneBg;
+    case TicketStatus.closed: return AppColors.statusClosedBg;
   }
 }
 
 String getStatusLabel(TicketStatus status) {
   switch (status) {
     case TicketStatus.open: return 'Open';
+    case TicketStatus.assigned: return 'Assigned';
     case TicketStatus.inProgress: return 'In Progress';
-    case TicketStatus.done: return 'Done';
+    case TicketStatus.closed: return 'Closed';
   }
 }
 

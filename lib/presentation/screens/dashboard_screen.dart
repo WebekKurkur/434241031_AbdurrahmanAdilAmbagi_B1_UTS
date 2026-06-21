@@ -1,5 +1,6 @@
 // lib/presentation/screens/dashboard_screen.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,11 +10,18 @@ import '../../domain/entities/user_entity.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shimmer_card.dart';
 import '../widgets/ticket_card.dart';
+import '../widgets/notification_bell.dart';
 import 'ticket_detail_screen.dart';
 import 'create_ticket_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
-  const DashboardScreen({super.key});
+  /// Optional callback for switching the parent `HomeScreen`'s
+  /// bottom-nav tab. Wired up by `HomeScreen.build()` so the
+  /// "Lihat Tiket" / "Lihat Semua" quick actions jump to the
+  /// Tiket tab instead of opening a new route.
+  final ValueChanged<int>? onSwitchToTab;
+
+  const DashboardScreen({super.key, this.onSwitchToTab});
 
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
@@ -92,7 +100,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 'Selamat Datang 👋',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -108,15 +116,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ],
                           ),
                         ),
+                        // Bell icon
+                        const NotificationBell(iconColor: Colors.white),
+                        const SizedBox(width: 8),
                         // Avatar
                         Container(
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.4),
+                              color: Colors.white.withValues(alpha: 0.4),
                               width: 2,
                             ),
                           ),
@@ -131,10 +142,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: Colors.white.withOpacity(0.3), width: 1),
+                            color: Colors.white.withValues(alpha: 0.3), width: 1),
                       ),
                       child: Text(
                         getRoleLabel(user.role).toUpperCase(),
@@ -213,7 +224,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           icon: Icons.list_alt_rounded,
                           label: 'Lihat Tiket',
                           color: const Color(0xFF00838F),
-                          onTap: () {},
+                          onTap: () => widget.onSwitchToTab?.call(1),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -222,7 +233,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           icon: Icons.track_changes_rounded,
                           label: 'Tracking',
                           color: const Color(0xFFFF9800),
-                          onTap: () {},
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Tracking — coming soon'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -249,7 +267,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: () => widget.onSwitchToTab?.call(1),
                       child: const Text('Lihat Semua',
                           style: TextStyle(fontSize: 13)),
                     ),
@@ -276,13 +294,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             isUser: user.role == UserRole.user,
                           ),
                           const SizedBox(height: 12),
-                          // Diagnostic banner so the user can see
-                          // whether the DB actually has rows that
-                          // RLS is filtering out.
-                          _DbStatusBanner(
-                            isDark: isDark,
-                            role: user.role,
-                          ),
+                          // Diagnostic banner so the developer
+                          // can see whether the DB actually has
+                          // rows that RLS is filtering out.
+                          // Hidden in release builds so end users
+                          // never see the raw RLS / filter stats.
+                          if (kDebugMode) ...[
+                            _DbStatusBanner(
+                              isDark: isDark,
+                              role: user.role,
+                            ),
+                          ],
                         ],
                       );
                     }
@@ -361,6 +383,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             'bgColor': AppColors.statusOpen.withValues(alpha: 0.1),
           },
           {
+            'label': 'Assigned',
+            'value': stats.assigned,
+            'icon': Icons.assignment_ind_rounded,
+            'color': AppColors.statusAssigned,
+            'bgColor': AppColors.statusAssigned.withValues(alpha: 0.1),
+          },
+          {
             'label': 'In Progress',
             'value': stats.inProgress,
             'icon': Icons.autorenew_rounded,
@@ -368,11 +397,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             'bgColor': AppColors.statusInProgress.withValues(alpha: 0.1),
           },
           {
-            'label': 'Selesai',
-            'value': stats.done,
+            'label': 'Closed',
+            'value': stats.closed,
             'icon': Icons.check_circle_outline_rounded,
-            'color': AppColors.statusDone,
-            'bgColor': AppColors.statusDone.withValues(alpha: 0.1),
+            'color': AppColors.statusClosed,
+            'bgColor': AppColors.statusClosed.withValues(alpha: 0.1),
           },
         ];
 
@@ -518,7 +547,7 @@ class _QuickActionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 20),
@@ -555,7 +584,7 @@ class _EmptyState extends StatelessWidget {
           Icon(
             Icons.inbox_rounded,
             size: 64,
-            color: Colors.grey.withOpacity(0.4),
+            color: Colors.grey.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 16),
           Text(
@@ -563,7 +592,7 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.withOpacity(0.6),
+              color: Colors.grey.withValues(alpha: 0.6),
             ),
           ),
           if (isUser) ...[
@@ -573,7 +602,7 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey.withOpacity(0.5),
+                color: Colors.grey.withValues(alpha: 0.5),
               ),
             ),
           ],

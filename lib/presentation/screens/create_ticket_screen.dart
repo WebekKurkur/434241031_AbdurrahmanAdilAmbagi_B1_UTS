@@ -12,8 +12,6 @@
 //      (we don't submit a text-only ticket in that case so the
 //      photo is never silently lost)
 
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
@@ -24,6 +22,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/network/storage_helper.dart';
 import '../../domain/entities/ticket_entity.dart';
 import '../../domain/entities/user_entity.dart';
+import '../../domain/usecases/ticket/add_ticket_usecase.dart';
 import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ticket_provider.dart';
@@ -188,20 +187,14 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
 
     if (!mounted) return;
     setState(() => _submitting = true);
-    final newTicket = TicketEntity(
-      id:
-          'TKT-${(DateTime.now().millisecondsSinceEpoch % 10000).toString().padLeft(3, '0')}',
-      title: _titleController.text.trim(),
-      description: _descController.text.trim(),
-      status: TicketStatus.open,
-      createdAt: DateTime.now(),
-      createdBy: user.name,
-      category: _selectedCategory,
-      comments: [],
-      imageUrl: imageUrl,
+    final created = await ref.read(addTicketUseCaseProvider)(
+      AddTicketParams(
+        title: _titleController.text.trim(),
+        description: _descController.text.trim(),
+        category: _selectedCategory,
+        imageUrl: imageUrl,
+      ),
     );
-
-    final created = await ref.read(addTicketUseCaseProvider)(newTicket);
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
     ref.invalidate(ticketStatsProvider);
@@ -252,12 +245,12 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AppColors.statusDoneBg,
+                color: AppColors.statusClosedBg,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.check_rounded,
-                color: AppColors.statusDone,
+                color: AppColors.statusClosed,
                 size: 36,
               ),
             ),
@@ -396,7 +389,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                   label: Text(cat),
                   selected: isSelected,
                   onSelected: (_) => setState(() => _selectedCategory = cat),
-                  selectedColor: AppColors.primary.withOpacity(0.15),
+                  selectedColor: AppColors.primary.withValues(alpha: 0.15),
                   checkmarkColor: AppColors.primary,
                   labelStyle: TextStyle(
                     color: isSelected ? AppColors.primary : null,
@@ -509,7 +502,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.55),
+                  color: Colors.black.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -523,14 +516,16 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                       style: const TextStyle(
                           color: Colors.white, fontSize: 11),
                     ),
-                    if (_pickedBytes != null) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        '(${(int.parse((_pickedBytes!.length / 1024).toStringAsFixed(0)))} KB)',
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 10),
-                      ),
-                    ],
+                    // The whole pill is rendered only when
+                    // `_pickedBytes != null` (see caller), so we
+                    // can use `!` here. Use integer division
+                    // (`~/`) instead of `(x/1024).roundToDouble()`.
+                    const SizedBox(width: 6),
+                    Text(
+                      '(${_pickedBytes!.length ~/ 1024} KB)',
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 10),
+                    ),
                   ],
                 ),
               ),
@@ -544,7 +539,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.close,
@@ -664,7 +659,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     side: BorderSide(
-                      color: AppColors.primary.withOpacity(0.5),
+                      color: AppColors.primary.withValues(alpha: 0.5),
                     ),
                     foregroundColor: AppColors.primary,
                   ),
@@ -719,7 +714,7 @@ class _PillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withOpacity(0.55),
+      color: Colors.black.withValues(alpha: 0.55),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),

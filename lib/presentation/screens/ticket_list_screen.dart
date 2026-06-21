@@ -28,7 +28,7 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     Future.delayed(const Duration(milliseconds: 1000),
         () => mounted ? setState(() => _loading = false) : null);
   }
@@ -48,10 +48,14 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen>
         break;
       case 2:
         filtered =
-            tickets.where((t) => t.status == TicketStatus.inProgress).toList();
+            tickets.where((t) => t.status == TicketStatus.assigned).toList();
         break;
       case 3:
-        filtered = tickets.where((t) => t.status == TicketStatus.done).toList();
+        filtered =
+            tickets.where((t) => t.status == TicketStatus.inProgress).toList();
+        break;
+      case 4:
+        filtered = tickets.where((t) => t.status == TicketStatus.closed).toList();
         break;
       default:
         filtered = tickets;
@@ -106,10 +110,12 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen>
               total: tickets.length,
               open:
                   tickets.where((t) => t.status == TicketStatus.open).length,
+              assigned:
+                  tickets.where((t) => t.status == TicketStatus.assigned).length,
               progress: tickets
                   .where((t) => t.status == TicketStatus.inProgress)
                   .length,
-              done: tickets.where((t) => t.status == TicketStatus.done).length,
+              closed: tickets.where((t) => t.status == TicketStatus.closed).length,
             );
             return TabBar(
               controller: _tabController,
@@ -126,8 +132,9 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen>
               tabs: [
                 Tab(text: 'Semua (${stats.total})'),
                 Tab(text: 'Open (${stats.open})'),
+                Tab(text: 'Assigned (${stats.assigned})'),
                 Tab(text: 'Progress (${stats.progress})'),
-                Tab(text: 'Done (${stats.done})'),
+                Tab(text: 'Closed (${stats.closed})'),
               ],
             );
           },

@@ -25,10 +25,12 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  void logout() {
-    // signOut is async, but the interface declares void. The notifier
-    // awaits logout() in the use case.
-    dataSource.logout();
+  Future<void> logout() async {
+    // `dataSource.logout()` is `Future<void>`, so rethrow any
+    // failure (network drop, no session, etc.) up to the notifier
+    // so the UI can show a snackbar instead of silently routing
+    // the user to `/login` while their session is still alive.
+    await dataSource.logout();
   }
 
   @override

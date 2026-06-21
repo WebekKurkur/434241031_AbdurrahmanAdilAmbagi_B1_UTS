@@ -84,10 +84,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   width: 96,
                   height: 96,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                   ),
@@ -123,7 +123,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   'E-Ticketing System',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.white.withOpacity(0.75),
+                    color: Colors.white.withValues(alpha: 0.75),
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0.3,
                   ),
@@ -138,7 +138,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.white.withOpacity(0.6),
+                      Colors.white.withValues(alpha: 0.6),
                     ),
                   ),
                 )
@@ -149,7 +149,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   'Loading...',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                   ),
                 )
                     .animate()

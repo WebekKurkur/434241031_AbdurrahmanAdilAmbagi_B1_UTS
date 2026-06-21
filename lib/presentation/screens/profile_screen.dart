@@ -425,6 +425,20 @@ class ProfileScreen extends ConsumerWidget {
                           color: isDark
                               ? const Color(0xFF2D3F55)
                               : const Color(0xFFE8EDF5)),
+                      // Phase E: admin-only "Kelola Pengguna" entry
+                      if (user.role == UserRole.admin)
+                        _SettingsItem(
+                          icon: Icons.people_outline_rounded,
+                          label: 'Kelola Pengguna',
+                          isDark: isDark,
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/admin/users'),
+                        ),
+                      Divider(
+                          height: 1,
+                          color: isDark
+                              ? const Color(0xFF2D3F55)
+                              : const Color(0xFFE8EDF5)),
                       _SettingsItem(
                         icon: Icons.help_outline_rounded,
                         label: 'Bantuan',

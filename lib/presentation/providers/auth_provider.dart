@@ -12,6 +12,10 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/auth/login_usecase.dart';
 import '../../domain/usecases/auth/logout_usecase.dart';
+import '../../domain/usecases/auth/register_usecase.dart';
+import '../../domain/usecases/auth/reset_password_usecase.dart';
+import '../../domain/usecases/auth/get_all_users_usecase.dart';
+import '../../domain/usecases/auth/update_user_usecase.dart';
 
 // Data Sources
 final authDataSourceProvider = Provider((ref) => AuthDataSource());
@@ -33,6 +37,35 @@ final logoutUseCaseProvider = Provider((ref) {
   return LogoutUseCase(repository);
 });
 
+final registerUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return RegisterUseCase(repository);
+});
+
+final resetPasswordUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return ResetPasswordUseCase(repository);
+});
+
+// Phase E: admin user management
+final getAllUsersUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return GetAllUsersUseCase(repository);
+});
+
+final updateUserUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return UpdateUserUseCase(repository);
+});
+
+/// Phase E: list of all profiles (admin only). Refreshable via
+/// `ref.invalidate(adminUsersProvider)`.
+final adminUsersProvider =
+    FutureProvider.autoDispose<List<UserEntity>>((ref) async {
+  final useCase = ref.watch(getAllUsersUseCaseProvider);
+  return await useCase();
+});
+
 /// Auth state notifier.
 ///
 /// Subscribes once to the Supabase-backed [AuthDataSource.profileStream] in
@@ -45,12 +78,18 @@ final logoutUseCaseProvider = Provider((ref) {
 class AuthNotifier extends StateNotifier<UserEntity?> {
   final LoginUseCase loginUseCase;
   final LogoutUseCase logoutUseCase;
+  final RegisterUseCase registerUseCase;
+  final ResetPasswordUseCase resetPasswordUseCase;
+  final UpdateUserUseCase updateUserUseCase;
   final AuthDataSource dataSource;
   StreamSubscription<UserEntity?>? _profileSub;
 
   AuthNotifier({
     required this.loginUseCase,
     required this.logoutUseCase,
+    required this.registerUseCase,
+    required this.resetPasswordUseCase,
+    required this.updateUserUseCase,
     required this.dataSource,
     required UserEntity? initialUser,
   }) : super(initialUser) {
@@ -74,6 +113,37 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
       return true;
     }
     return false;
+  }
+
+  /// Create a new account. Returns the freshly created user (or
+  /// `null` if the server rejected the request). On success the
+  /// `profileStream` listener above will pick up the new session
+  /// and update `state` automatically, so we don't write to `state`
+  /// ourselves here.
+  Future<UserEntity?> register(RegisterParams params) async {
+    final user = await registerUseCase(params);
+    return user;
+  }
+
+  /// Trigger a password-reset email. Throws on failure so the UI
+  /// can surface the error message. Used by the forgot-password
+  /// screen (FR-004).
+  Future<void> resetPassword(String email) async {
+    await resetPasswordUseCase(email);
+  }
+
+  /// Phase E: update another user's profile via the
+  /// `admin_update_user` RPC. Returns the updated entity so the
+  /// caller can update local optimistic state.
+  Future<UserEntity> updateUser(UpdateUserParams params) async {
+    final updated = await updateUserUseCase(params);
+    // The currently signed-in admin may have changed their own
+    // department / avatar through this call too. Refresh the
+    // local user entity if so.
+    if (mounted && state?.id == params.targetUserId) {
+      state = updated;
+    }
+    return updated;
   }
 
   /// Sign the current user out and clear local state.
@@ -109,6 +179,9 @@ final currentUserProvider =
   return AuthNotifier(
     loginUseCase: ref.watch(loginUseCaseProvider),
     logoutUseCase: ref.watch(logoutUseCaseProvider),
+    registerUseCase: ref.watch(registerUseCaseProvider),
+    resetPasswordUseCase: ref.watch(resetPasswordUseCaseProvider),
+    updateUserUseCase: ref.watch(updateUserUseCaseProvider),
     dataSource: dataSource,
     initialUser: repository.currentUser,
   );

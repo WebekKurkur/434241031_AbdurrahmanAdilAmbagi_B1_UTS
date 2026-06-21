@@ -4,22 +4,15 @@ import '../../domain/entities/user_entity.dart';
 
 class UserModel extends UserEntity {
   UserModel({
-    required String id,
-    required String name,
-    required String username,
-    required String email,
-    required UserRole role,
-    String? avatarUrl,
-    required String department,
-  }) : super(
-    id: id,
-    name: name,
-    username: username,
-    email: email,
-    role: role,
-    avatarUrl: avatarUrl,
-    department: department,
-  );
+    required super.id,
+    required super.name,
+    required super.username,
+    required super.email,
+    required super.role,
+    super.avatarUrl,
+    required super.department,
+    super.isActive = true,
+  });
 
   factory UserModel.fromEntity(UserEntity entity) {
     return UserModel(
@@ -30,6 +23,31 @@ class UserModel extends UserEntity {
       role: entity.role,
       avatarUrl: entity.avatarUrl,
       department: entity.department,
+      isActive: entity.isActive,
+    );
+  }
+
+  /// Parse a `profiles` row returned by PostgREST.
+  ///
+  /// Phase E: also reads `is_active` (default true for older
+  /// rows written before migration 0006).
+  factory UserModel.fromRow(Map<String, dynamic> j) {
+    return UserModel(
+      id: j['id'] as String,
+      name: j['name'] as String? ?? '',
+      username: j['username'] as String? ?? '',
+      email: j['email'] as String? ?? '',
+      role: _parseRole(j['role'] as String? ?? 'user'),
+      avatarUrl: j['avatar_url'] as String?,
+      department: j['department'] as String? ?? '',
+      isActive: j['is_active'] as bool? ?? true,
+    );
+  }
+
+  static UserRole _parseRole(String s) {
+    return UserRole.values.firstWhere(
+      (r) => r.name == s,
+      orElse: () => UserRole.user,
     );
   }
 }

@@ -13,6 +13,7 @@ import '../widgets/ticket_card.dart';
 import '../widgets/notification_bell.dart';
 import 'ticket_detail_screen.dart';
 import 'create_ticket_screen.dart';
+import 'tracking_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   /// Optional callback for switching the parent `HomeScreen`'s
@@ -233,14 +234,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           icon: Icons.track_changes_rounded,
                           label: 'Tracking',
                           color: const Color(0xFFFF9800),
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Tracking — coming soon'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const TrackingScreen()),
+                          ),
                         ),
                       ),
                     ],

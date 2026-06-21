@@ -10,6 +10,7 @@ import '../../domain/entities/ticket_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/ticket/add_comment_usecase.dart';
 import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
+import 'ticket_history_screen.dart';
 import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
 import '../theme/app_theme.dart';
 import '../widgets/status_badge.dart';
@@ -658,6 +659,18 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                   ),
                 ).animate().fadeIn(delay: 200.ms),
 
+                // History button (Phase D1)
+                //
+                // Opens a bottom sheet showing the per-ticket
+                // audit log (FR-010 Riwayat). Backed by the
+                // `ticketHistoryStreamProvider` we added in
+                // Phase A2, populated by Postgres triggers on
+                // `tickets` and `comments`.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: _HistoryButton(ticketId: ticket.id),
+                ),
+
                 // Comments section
                 //
                 // Reads from the realtime stream declared in
@@ -773,6 +786,95 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
       ),
     );
       },
+    );
+  }
+}
+
+/// Pill button on the ticket detail screen that opens the
+/// per-ticket audit log (Phase D1, FR-010).
+///
+/// Shows a live count of history rows from
+/// `ticketHistoryStreamProvider`. Hidden entirely while the
+/// stream is loading so we don't show "0" on a slow network.
+class _HistoryButton extends ConsumerWidget {
+  final String ticketId;
+  const _HistoryButton({required this.ticketId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final historyAsync = ref.watch(ticketHistoryStreamProvider(ticketId));
+    final count = historyAsync.valueOrNull?.length;
+    final hasLoaded = historyAsync.hasValue;
+
+    return InkWell(
+      onTap: () => showTicketHistorySheet(context, ticketId),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF1E293B)
+              : const Color(0xFFEFF2F7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark
+                ? const Color(0xFF334155)
+                : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.statusAssignedBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.history_rounded,
+                color: AppColors.statusAssigned,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Riwayat Tiket',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    hasLoaded
+                        ? '$count aktivitas tercatat'
+                        : 'Memuat aktivitas\u2026',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isDark
+                  ? const Color(0xFF64748B)
+                  : const Color(0xFF94A3B8),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/errors/app_exception.dart';
 import '../../domain/entities/user_entity.dart';
 import '../models/user_model.dart';
 
@@ -41,13 +42,24 @@ class AuthDataSource {
   /// Sign in with email + password. The `authDataSource` doesn't take
   /// a username — the login screen resolves the username to an email
   /// through the `profiles` table when needed.
+  ///
+  /// Phase E: if the matching `profiles.is_active` is `false`, this
+  /// throws [UserInactiveException] (and signs the user back out).
+  /// The login screen catches it and surfaces a friendly message.
   Future<UserEntity?> login(String email, String password) async {
     final res = await _client.auth.signInWithPassword(
       email: email,
       password: password,
     );
     if (res.user == null) return null;
-    return await _fetchProfile(res.user!.id);
+    final profile = await _fetchProfile(res.user!.id);
+    if (profile != null && !profile.isActive) {
+      // Deactivated user: sign them right back out so the
+      // session doesn't linger server-side.
+      await _client.auth.signOut();
+      throw const UserInactiveException();
+    }
+    return profile;
   }
 
   /// Resolve a username to its email. Used by the login screen so the
@@ -90,6 +102,55 @@ class AuthDataSource {
     await _client.auth.signOut();
   }
 
+  /// Phase E: list all profiles (admin-only via RLS — the
+  /// "profiles read" policy allows any authenticated user to
+  /// read all profiles, but the admin UI is gated by the caller's
+  /// role on the client side and by the admin_update_user RPC on
+  /// the server side).
+  Future<List<UserEntity>> getAllUsers() async {
+    final rows = await _client
+        .from('profiles')
+        .select()
+        .order('name', ascending: true);
+    return rows.map(UserModel.fromRow).toList();
+  }
+
+  /// Phase E: call the `admin_update_user` RPC. Returns the
+  /// updated row.
+  Future<UserEntity> adminUpdateUser({
+    required String targetUserId,
+    UserRole? role,
+    bool? isActive,
+    String? department,
+  }) async {
+    final res = await _client.rpc(
+      'admin_update_user',
+      params: {
+        'p_target': targetUserId,
+        if (role != null) 'p_role': role.name,
+        if (isActive != null) 'p_is_active': isActive,
+        if (department != null) 'p_department': department,
+      },
+    );
+    // Supabase RPC returns a single row as a map when invoked
+    // through `.rpc(name, params)`. The `admin_update_user`
+    // function returns `public.profiles` so we get a single
+    // map back.
+    final row = (res as Map).cast<String, dynamic>();
+    return UserModel.fromRow(row);
+  }
+
+  /// Trigger a password-reset email. Supabase sends a one-time
+  /// link to `email` containing a token that the user clicks to
+  /// land on the redirect URL (configured per-project).
+  ///
+  /// Throws on failure (invalid email, network error, rate
+  /// limit, etc.) so the caller can surface the error message
+  /// instead of silently reporting success.
+  Future<void> resetPassword(String email) async {
+    await _client.auth.resetPasswordForEmail(email);
+  }
+
   /// Stream the profile (re-fetched on every auth change) so the UI
   /// can react automatically to SIGNED_IN / SIGNED_OUT.
   Stream<UserEntity?> get profileStream => _client.auth.onAuthStateChange
@@ -129,6 +190,7 @@ class AuthDataSource {
         role: _parseRole(j['role'] as String? ?? 'user'),
         avatarUrl: j['avatar_url'] as String?,
         department: j['department'] as String? ?? '',
+        isActive: j['is_active'] as bool? ?? true,
       );
 
   UserRole _parseRole(String s) {

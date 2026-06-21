@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/errors/app_exception.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -54,19 +55,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _isLoading = true;
     });
 
-    final authNotifier = ref.read(currentUserProvider.notifier);
-    final success = await authNotifier.login(
-      _usernameController.text.trim(),
-      _passwordController.text,
-    );
+    try {
+      final authNotifier = ref.read(currentUserProvider.notifier);
+      final success = await authNotifier.login(
+        _usernameController.text.trim(),
+        _passwordController.text,
+      );
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-      if (success) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        setState(() => _errorMessage =
-            'Username atau password salah. (Default password: "password")');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        if (success) {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          setState(() => _errorMessage =
+              'Username atau password salah. (Default password: "password")');
+        }
+      }
+    } on UserInactiveException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.message;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Login gagal: $e';
+        });
       }
     }
   }
@@ -288,6 +305,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onChanged: (_) =>
                               setState(() => _errorMessage = null),
                         ),
+                        // Forgot password link
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () => Navigator.pushNamed(
+                                    context, '/forgot-password'),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 4),
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Lupa password?',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
                         // Error message
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 12),
@@ -358,6 +396,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   )
                                 : const Text('Masuk'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Register link
+                        Center(
+                          child: TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () => Navigator.pushNamed(context, '/register'),
+                            child: const Text(
+                              'Belum punya akun? Daftar',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
                           ),
                         ),
                       ],

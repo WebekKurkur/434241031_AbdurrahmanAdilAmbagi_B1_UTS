@@ -34,5 +34,52 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<UserEntity?> register({
+    required String username,
+    required String name,
+    required String email,
+    required String password,
+    required UserRole role,
+    required String department,
+  }) async {
+    // Forward to the data source. The `handle_new_user` Postgres
+    // trigger (migration 0001_init.sql) creates the matching row in
+    // `public.profiles` from `auth.users.raw_user_meta_data`.
+    return await dataSource.signUp(
+      email: email,
+      password: password,
+      name: name,
+      username: username,
+      role: role,
+      department: department,
+    );
+  }
+
+  @override
+  Future<void> resetPassword(String email) async {
+    await dataSource.resetPassword(email);
+  }
+
+  @override
+  Future<List<UserEntity>> getAllUsers() async {
+    return await dataSource.getAllUsers();
+  }
+
+  @override
+  Future<UserEntity> adminUpdateUser({
+    required String targetUserId,
+    UserRole? role,
+    bool? isActive,
+    String? department,
+  }) async {
+    return await dataSource.adminUpdateUser(
+      targetUserId: targetUserId,
+      role: role,
+      isActive: isActive,
+      department: department,
+    );
+  }
+
+  @override
   UserEntity? get currentUser => dataSource.currentUser;
 }

@@ -1,14 +1,31 @@
 // lib/presentation/screens/register_screen.dart
 //
-// Phase C1 of the SRS v2.0.0 audit (ignore/todo-srs.md).
+// Redesign (2026-06-22) per Figma node 8071:381.
 //
-// FR-003 Register: username + name + email + password + confirm
-// password + role + department. Routes to /home on success.
+// UI: edge-to-edge form on `#f5f7fa` background, with:
+//   - 37.5 px blue logo + "Helpdesk / E-Ticketing System"
+//   - "Create your account" heading (26 px bold)
+//   - Five fields: Full name / Work email / Phone (optional) /
+//     Department (dropdown) / Password
+//   - Terms-of-Service checkbox
+//   - "Create account" blue button (disabled when form invalid)
+//   - "ALREADY HAVE AN ACCOUNT?" divider + "Sign in instead" link
 //
-// Note: this is self-service registration. In a real prod
-// environment you'd typically disable public sign-up and have an
-// admin invite users. For SRS compliance the Supabase project has
-// `auto_confirm: true` so the new account is immediately usable.
+// Behaviour preserved from the old screen:
+// - `supabase.auth.signUp()` does the work (see auth_repository_impl).
+// - The `handle_new_user` Postgres trigger creates the matching
+//   `public.profiles` row.
+//
+// Adaptations for Figma:
+// - The Figma design has no role selector — public sign-up only.
+//   We hard-code `UserRole.user` (matches Supabase `auto_confirm`
+//   in supabase/config.toml; see `get_all_users_usecase`).
+// - No "Confirm password" field in Figma — drop the validator and
+//   rely on the client-side min-length check.
+// - No "Username" field in Figma — derive it from the email's
+//   local part (`you@company.id` -> `you`) when calling
+//   `register()`. The `profiles.username` column is still
+//   populated that way.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -18,6 +35,8 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/auth/register_usecase.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auth_field.dart';
+import '../widgets/auth_scaffold.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -28,26 +47,40 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _departmentController = TextEditingController();
-  UserRole _role = UserRole.user;
+  final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
-  bool _obscureConfirm = true;
+  bool _agreeToTerms = false;
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Figma shows 8 department options in the dropdown (the SVG
+  // asset has 8 stacked "Option" rectangles at 24 px each).
+  // We keep the list generic — these match common Indonesian IT
+  // organisational units and the seed-data departments in
+  // supabase/migrations/0001_init.sql.
+  static const _departments = <String>[
+    'IT',
+    'Finance',
+    'HR',
+    'Operations',
+    'Marketing',
+    'Sales',
+    'Legal',
+    'Customer Service',
+  ];
+
   @override
   void dispose() {
-    _usernameController.dispose();
     _nameController.dispose();
     _emailController.dispose();
-    _passwordController.dispose();
-    _confirmController.dispose();
+    _phoneController.dispose();
     _departmentController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -63,29 +96,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return null;
   }
 
-  String? _validateUsername(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Username harus diisi';
-    final trimmed = v.trim();
-    if (trimmed.length < 3) return 'Username minimal 3 karakter';
-    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(trimmed)) {
-      return 'Username hanya boleh huruf, angka, dan underscore';
-    }
-    return null;
-  }
-
   String? _validatePassword(String? v) {
     if (v == null || v.isEmpty) return 'Password harus diisi';
     if (v.length < 6) return 'Password minimal 6 karakter';
     return null;
   }
 
-  String? _validateConfirm(String? v) {
-    if (v != _passwordController.text) return 'Password tidak cocok';
-    return null;
+  /// Username isn't in the Figma UI but `profiles.username` is a
+  /// NOT NULL column. Derive it from the email's local part. If
+  /// it doesn't pass the regex (e.g. starts with a digit), fall
+  /// back to `user_<hash>`.
+  String _deriveUsername(String email) {
+    final local = email.split('@').first.toLowerCase();
+    if (RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(local) && local.length >= 3) {
+      return local;
+    }
+    return 'user_${email.hashCode.toUnsigned(20).toRadixString(36)}';
   }
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_agreeToTerms) {
+      setState(() => _errorMessage =
+          'Anda harus menyetujui Terms of Service dan Privacy Policy.');
+      return;
+    }
 
     setState(() {
       _errorMessage = null;
@@ -93,13 +128,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     try {
+      final email = _emailController.text.trim();
       final user = await ref.read(currentUserProvider.notifier).register(
             RegisterParams(
-              username: _usernameController.text.trim(),
+              username: _deriveUsername(email),
               name: _nameController.text.trim(),
-              email: _emailController.text.trim(),
+              email: email,
               password: _passwordController.text,
-              role: _role,
+              role: UserRole.user,
               department: _departmentController.text.trim(),
             ),
           );
@@ -107,7 +143,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (!mounted) return;
 
       if (user != null) {
-        // Success → route to home.
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         setState(() => _errorMessage =
@@ -115,7 +150,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      // Strip the noisy "AuthRetryableFetchException: " prefix.
       final msg = e.toString().replaceFirst('AuthRetryableFetchException: ', '');
       setState(() => _errorMessage = 'Pendaftaran gagal: $msg');
     } finally {
@@ -125,283 +159,361 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AuthScaffold(
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AuthLogo(),
+            const SizedBox(height: 22.5),
+            _buildHeading(),
+            const SizedBox(height: 22.5),
+            _buildForm(),
+            const SizedBox(height: 22.5),
+            _buildTermsRow(),
+            const SizedBox(height: 15),
+            _buildCreateButton(),
+            const SizedBox(height: 22.5),
+            _buildDivider(),
+            const SizedBox(height: 11.25),
+            _buildSignInInstead(),
+            const SizedBox(height: 22.5),
+            _buildFooter(),
+          ],
+        ),
+      ),
+    );
+  }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 280,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF0D47A1), Color(0xFF1565C0)],
+  Widget _buildHeading() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Text(
+          'Create your account',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
+            color: AppColors.authFieldText,
+            letterSpacing: -0.52,
+            height: 1.25,
+          ),
+        ),
+        SizedBox(height: 3.75),
+        Text(
+          'Submit and track IT support tickets across your organization.',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: AppColors.authHint,
+            height: 1.5,
+          ),
+        ),
+      ],
+    ).animate().fadeIn(delay: 80.ms, duration: 300.ms);
+  }
+
+  Widget _buildForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AuthField(
+          icon: Icons.person_outline_rounded,
+          hint: 'Full name',
+          controller: _nameController,
+          textInputAction: TextInputAction.next,
+          validator: (v) => _required(v, 'Full name'),
+        ),
+        const SizedBox(height: 11.25),
+        AuthField(
+          icon: Icons.alternate_email_rounded,
+          hint: 'Work email',
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          validator: _validateEmail,
+        ),
+        const SizedBox(height: 11.25),
+        AuthField(
+          icon: Icons.phone_outlined,
+          hint: 'Phone number (optional)',
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.next,
+          validator: (_) => null, // optional, no validation
+        ),
+        const SizedBox(height: 11.25),
+        _DepartmentDropdown(
+          value: _departmentController.text.isEmpty
+              ? null
+              : _departmentController.text,
+          onChanged: (v) => setState(
+              () => _departmentController.text = v ?? ''),
+        ),
+        const SizedBox(height: 11.25),
+        AuthField(
+          icon: Icons.lock_outline_rounded,
+          hint: 'Create password',
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _handleRegister(),
+          validator: _validatePassword,
+          suffixIcon: IconButton(
+            icon: Icon(
+              _obscurePassword
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: 16,
+              color: AppColors.authHint,
+            ),
+            onPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
+          ),
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 11.25),
+          _ErrorBanner(message: _errorMessage!),
+        ],
+      ],
+    ).animate().fadeIn(delay: 160.ms, duration: 400.ms).slideY(begin: 0.05);
+  }
+
+  Widget _buildTermsRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1.875),
+          child: GestureDetector(
+            onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                color: _agreeToTerms
+                    ? AppColors.authPrimary
+                    : AppColors.authFieldFill,
+                border: Border.all(
+                  color: _agreeToTerms
+                      ? AppColors.authPrimary
+                      : AppColors.authBorder,
+                  width: 1,
                 ),
+                borderRadius: BorderRadius.circular(3.75),
               ),
+              child: _agreeToTerms
+                  ? const Icon(Icons.check_rounded,
+                      size: 11, color: Colors.white)
+                  : null,
             ),
           ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  // Back button
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.arrow_back_rounded,
-                          color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 9.375),
+        Expanded(
+          child: Wrap(
+            children: [
+              const Text(
+                'I agree to the ',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.authHint,
+                  height: 1.5,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Terms of Service — placeholder link'),
+                      duration: Duration(seconds: 2),
                     ),
-                  ).animate().fadeIn(duration: 300.ms),
-                  const SizedBox(height: 20),
-                  // Header
-                  Text(
-                    'Daftar Akun',
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
+                  );
+                },
+                child: const Text(
+                  'Terms of Service',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.authPrimary,
+                    height: 1.5,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Buat akun baru untuk mulai menggunakan HelpDesk',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.75),
+                ),
+              ),
+              const Text(
+                ' and ',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.authHint,
+                  height: 1.5,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Privacy Policy — placeholder link'),
+                      duration: Duration(seconds: 2),
                     ),
+                  );
+                },
+                child: const Text(
+                  'Privacy Policy',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.authPrimary,
+                    height: 1.5,
                   ),
-                  const SizedBox(height: 24),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.cardDark : Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: Form(
-                      key: _formKey,
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Role selector
-                          Text(
-                            'Daftar sebagai',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? AppColors.textMuted
-                                  : AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: UserRole.values.map((role) {
-                              final isSelected = _role == role;
-                              final config = _roleConfig(role);
-                              return Expanded(
-                                child: GestureDetector(
-                                  onTap: () => setState(() => _role = role),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    margin: const EdgeInsets.only(right: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 10, horizontal: 8),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? AppColors.primary
-                                              .withValues(alpha: 0.1)
-                                          : isDark
-                                              ? const Color(0xFF1E293B)
-                                              : AppColors.surfaceSubtle,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? AppColors.primary
-                                            : Colors.transparent,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          config.icon,
-                                          size: 20,
-                                          color: isSelected
-                                              ? AppColors.primary
-                                              : isDark
-                                                  ? AppColors.textMuted
-                                                  : AppColors.textSecondary,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          config.label,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: isSelected
-                                                ? AppColors.primary
-                                                : isDark
-                                                    ? AppColors.textMuted
-                                                    : AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                          const SizedBox(height: 18),
-                          _Field(
-                            controller: _usernameController,
-                            label: 'Username',
-                            icon: Icons.person_outline_rounded,
-                            validator: _validateUsername,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(height: 12),
-                          _Field(
-                            controller: _nameController,
-                            label: 'Nama Lengkap',
-                            icon: Icons.badge_outlined,
-                            validator: (v) => _required(v, 'Nama lengkap'),
-                            isDark: isDark,
-                          ),
-                          const SizedBox(height: 12),
-                          _Field(
-                            controller: _emailController,
-                            label: 'Email',
-                            icon: Icons.mail_outline_rounded,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: _validateEmail,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(height: 12),
-                          _Field(
-                            controller: _departmentController,
-                            label: 'Departemen',
-                            icon: Icons.business_outlined,
-                            validator: (v) => _required(v, 'Departemen'),
-                            isDark: isDark,
-                          ),
-                          const SizedBox(height: 12),
-                          _Field(
-                            controller: _passwordController,
-                            label: 'Password',
-                            icon: Icons.lock_outline_rounded,
-                            obscureText: _obscurePassword,
-                            validator: _validatePassword,
-                            isDark: isDark,
-                            suffix: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                              ),
-                              onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
-                            ),
-                            onChanged: (_) =>
-                                _formKey.currentState?.validate(),
-                          ),
-                          const SizedBox(height: 12),
-                          _Field(
-                            controller: _confirmController,
-                            label: 'Konfirmasi Password',
-                            icon: Icons.lock_outline_rounded,
-                            obscureText: _obscureConfirm,
-                            validator: _validateConfirm,
-                            isDark: isDark,
-                            suffix: IconButton(
-                              icon: Icon(
-                                _obscureConfirm
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                              ),
-                              onPressed: () => setState(
-                                  () => _obscureConfirm = !_obscureConfirm),
-                            ),
-                          ),
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFEBEE),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.error_outline,
-                                      color: Color(0xFFEF5350), size: 16),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _errorMessage!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFFEF5350),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleRegister,
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                            Colors.white),
-                                      ),
-                                    )
-                                  : const Text('Daftar'),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Center(
-                            child: TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text(
-                                  'Sudah punya akun? Masuk di sini'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ).animate().fadeIn(delay: 200.ms, duration: 500.ms).slideY(begin: 0.1),
-                  const SizedBox(height: 32),
-                ],
+                ),
+              ),
+              const Text(
+                '.',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.authHint,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCreateButton() {
+    final bool enabled =
+        !_isLoading && _agreeToTerms && _passwordController.text.length >= 6;
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 150),
+      opacity: enabled ? 1.0 : 0.4,
+      child: SizedBox(
+        height: 41.25,
+        child: ElevatedButton(
+          onPressed: enabled ? _handleRegister : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.authPrimary,
+            disabledBackgroundColor: AppColors.authPrimary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            padding: EdgeInsets.zero,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text(
+                  'Create account',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    height: 1.4,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Expanded(child: _Hairline()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11.25),
+          child: const Text(
+            'ALREADY HAVE AN ACCOUNT?',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: AppColors.authHint,
+              letterSpacing: 0.5,
+              height: 1.5,
+            ),
+          ),
+        ),
+        const Expanded(child: _Hairline()),
+      ],
+    );
+  }
+
+  Widget _buildSignInInstead() {
+    return SizedBox(
+      width: double.infinity,
+      height: 41.25,
+      child: OutlinedButton(
+        onPressed: _isLoading ? null : () => Navigator.pop(context),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.authFieldText,
+          side: const BorderSide(color: AppColors.authBorder),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          padding: EdgeInsets.zero,
+        ),
+        child: const Text(
+          'Sign in instead',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.authFieldText,
+            height: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Center(
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Text(
+            'Having trouble? ',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: AppColors.authHint,
+              height: 1.5,
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Contact IT support — placeholder'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text(
+              'Contact IT support',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.authPrimary,
+                height: 1.5,
               ),
             ),
           ),
@@ -411,60 +523,114 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 }
 
-class _Field extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final String? Function(String?)? validator;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-  final Widget? suffix;
-  final ValueChanged<String>? onChanged;
-  final bool isDark;
-
-  const _Field({
-    required this.controller,
-    required this.label,
-    required this.icon,
-    required this.validator,
-    required this.isDark,
-    this.obscureText = false,
-    this.keyboardType,
-    this.suffix,
-    this.onChanged,
-  });
+class _DepartmentDropdown extends StatelessWidget {
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  const _DepartmentDropdown({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      validator: validator,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        suffixIcon: suffix,
+    return Container(
+      height: 41.25,
+      decoration: BoxDecoration(
+        color: AppColors.authFieldFill,
+        border: Border.all(color: AppColors.authBorder),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.25),
+            child: Icon(Icons.business_outlined,
+                size: 16, color: AppColors.authHint),
+          ),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                isExpanded: true,
+                hint: const Text(
+                  'Department',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.authHint,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                icon: const Padding(
+                  padding: EdgeInsets.only(right: 12.25),
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    size: 16,
+                    color: AppColors.authHint,
+                  ),
+                ),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.authFieldText,
+                ),
+                dropdownColor: AppColors.authFieldFill,
+                borderRadius: BorderRadius.circular(18),
+                items: _RegisterScreenState._departments
+                    .map((d) => DropdownMenuItem<String>(
+                          value: d,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 12.25),
+                            child: Text(d),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _RoleConfig {
-  final IconData icon;
-  final String label;
-  const _RoleConfig(this.icon, this.label);
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.authErrorBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.authError.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              color: AppColors.authError, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.authError,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-_RoleConfig _roleConfig(UserRole role) {
-  switch (role) {
-    case UserRole.user:
-      return const _RoleConfig(Icons.person_outline_rounded, 'User');
-    case UserRole.helpdesk:
-      return const _RoleConfig(Icons.headset_mic_outlined, 'Helpdesk');
-    case UserRole.admin:
-      return const _RoleConfig(
-          Icons.admin_panel_settings_outlined, 'Admin');
+class _Hairline extends StatelessWidget {
+  const _Hairline();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(height: 1, color: AppColors.authBorder);
   }
 }

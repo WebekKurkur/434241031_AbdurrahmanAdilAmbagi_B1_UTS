@@ -52,6 +52,5 @@ app.*.map.json
 # supabase
 supabase
 
-# docs 
+# docs
 ignore
-

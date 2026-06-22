@@ -44,6 +44,20 @@ class AppColors {
   // `0xFFF1F5FB` — a near-card-blue used for icons / pill bgs / etc.
   static const surfaceSubtleDark = Color(0xFF334155);
   static const surfaceSubtle = Color(0xFFF1F5FB);
+
+  // Figma redesign (2026-06-22) tokens for the auth screens.
+  // Login + register + forgot-password share the same palette.
+  // Sourced from the Figma `AuthLayout` style guide.
+  static const authBg = Color(0xFFF5F7FA);          // outer background
+  static const authBorder = Color(0xFFE5E7EB);       // card border
+  static const authShadow = Color(0x1F0F1115);      // 12% black, drop shadow
+  static const authFieldFill = Color(0xFFFFFFFF);   // input background
+  static const authFieldText = Color(0xFF0F1115);   // input text
+  static const authHint = Color(0xFF6B7280);         // placeholder / muted
+  static const authError = Color(0xFFEF4444);       // error banner
+  static const authErrorBg = Color(0xFFFEF2F2);     // error banner bg
+  static const authPrimary = Color(0xFF2563EB);     // primary action
+  static const authPrimaryPressed = Color(0xFF1D4ED8);
 }
 
 class AppTheme {

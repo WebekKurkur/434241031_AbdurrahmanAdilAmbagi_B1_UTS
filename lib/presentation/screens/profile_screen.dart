@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../providers/theme_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/ticket_entity.dart';
@@ -91,14 +90,8 @@ class ProfileScreen extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.settings_outlined,
                                 color: Colors.white),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Settings — coming soon'),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
+                            onPressed: () =>
+                                Navigator.pushNamed(context, '/settings'),
                           ),
                         ],
                       ),
@@ -151,7 +144,7 @@ class ProfileScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -160,8 +153,8 @@ class ProfileScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 13,
                           color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
+                              ? AppColors.textMuted
+                              : AppColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -275,8 +268,8 @@ class ProfileScreen extends ConsumerWidget {
                       Divider(
                           height: 1,
                           color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
+                              ? AppColors.dividerDark
+                              : AppColors.dividerLight),
                       _ProfileItem(
                         icon: Icons.badge_outlined,
                         label: 'Username',
@@ -286,8 +279,8 @@ class ProfileScreen extends ConsumerWidget {
                       Divider(
                           height: 1,
                           color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
+                              ? AppColors.dividerDark
+                              : AppColors.dividerLight),
                       _ProfileItem(
                         icon: Icons.email_outlined,
                         label: 'Email',
@@ -297,8 +290,8 @@ class ProfileScreen extends ConsumerWidget {
                       Divider(
                           height: 1,
                           color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
+                              ? AppColors.dividerDark
+                              : AppColors.dividerLight),
                       _ProfileItem(
                         icon: Icons.business_outlined,
                         label: 'Departemen',
@@ -320,137 +313,18 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Phase G4: profile no longer carries the settings list.
+                  // A single tile routes to the dedicated settings screen.
                   _SectionTitle(label: 'Pengaturan', isDark: isDark),
                   const SizedBox(height: 8),
                   _InfoCard(
                     children: [
-                      // Dark mode toggle
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(0xFF334155)
-                                    : const Color(0xFFF1F5FB),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                isDark
-                                    ? Icons.dark_mode_rounded
-                                    : Icons.light_mode_rounded,
-                                size: 18,
-                                color: isDark
-                                    ? const Color(0xFFFFC107)
-                                    : const Color(0xFFFF9800),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Tema Gelap',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  Text(
-                                    isDark ? 'Mode Gelap Aktif' : 'Mode Terang Aktif',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? const Color(0xFF94A3B8)
-                                          : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch.adaptive(
-                              value: isDark,
-                              onChanged: (_) =>
-                                  ref.read(themeProvider.notifier).toggle(),
-                              activeThumbColor: AppColors.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
                       _SettingsItem(
-                        icon: Icons.notifications_outlined,
-                        label: 'Notifikasi',
+                        icon: Icons.settings_outlined,
+                        label: 'Pengaturan Aplikasi',
                         isDark: isDark,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Notifikasi — coming soon'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _SettingsItem(
-                        icon: Icons.lock_outline_rounded,
-                        label: 'Ganti Password',
-                        isDark: isDark,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Ganti Password — coming soon'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      // Phase E: admin-only "Kelola Pengguna" entry
-                      if (user.role == UserRole.admin)
-                        _SettingsItem(
-                          icon: Icons.people_outline_rounded,
-                          label: 'Kelola Pengguna',
-                          isDark: isDark,
-                          onTap: () =>
-                              Navigator.pushNamed(context, '/admin/users'),
-                        ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _SettingsItem(
-                        icon: Icons.help_outline_rounded,
-                        label: 'Bantuan',
-                        isDark: isDark,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Bantuan — coming soon'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/settings'),
                       ),
                     ],
                     isDark: isDark,
@@ -568,7 +442,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget _divider() => Container(
         width: 1,
         height: 36,
-        color: const Color(0xFFE8EDF5),
+        color: AppColors.dividerLight,
       );
 }
 
@@ -594,8 +468,8 @@ class _StatItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
               color: isDark
-                  ? const Color(0xFF2D3F55)
-                  : const Color(0xFFE8EDF5)),
+                  ? AppColors.dividerDark
+                  : AppColors.dividerLight),
         ),
         child: Column(
           children: [
@@ -605,7 +479,7 @@ class _StatItem extends StatelessWidget {
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: color ??
-                    (isDark ? Colors.white : const Color(0xFF0F172A)),
+                    (isDark ? Colors.white : AppColors.textPrimary),
               ),
             ),
             const SizedBox(height: 2),
@@ -614,8 +488,8 @@ class _StatItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 color: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B),
+                    ? AppColors.textMuted
+                    : AppColors.textSecondary,
               ),
             ),
           ],
@@ -637,7 +511,7 @@ class _SectionTitle extends StatelessWidget {
       style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w700,
-        color: isDark ? Colors.white : const Color(0xFF0F172A),
+        color: isDark ? Colors.white : AppColors.textPrimary,
       ),
     );
   }
@@ -656,8 +530,8 @@ class _InfoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
             color: isDark
-                ? const Color(0xFF2D3F55)
-                : const Color(0xFFE8EDF5)),
+                ? AppColors.dividerDark
+                : AppColors.dividerLight),
       ),
       child: Column(children: children),
     );
@@ -686,15 +560,15 @@ class _ProfileItem extends StatelessWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF334155)
-                  : const Color(0xFFF1F5FB),
+                  ? AppColors.surfaceSubtleDark
+                  : AppColors.surfaceSubtle,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon,
                 size: 16,
                 color: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B)),
+                    ? AppColors.textMuted
+                    : AppColors.textSecondary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -706,8 +580,8 @@ class _ProfileItem extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF64748B),
+                        ? AppColors.textMuted
+                        : AppColors.textSecondary,
                   ),
                 ),
                 Text(
@@ -715,7 +589,7 @@ class _ProfileItem extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: isDark ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
               ],
@@ -745,21 +619,21 @@ class _SettingsItem extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5FB),
+          color: isDark ? AppColors.surfaceSubtleDark : AppColors.surfaceSubtle,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon,
             size: 18,
             color: isDark
-                ? const Color(0xFF94A3B8)
-                : const Color(0xFF64748B)),
+                ? AppColors.textMuted
+                : AppColors.textSecondary),
       ),
       title: Text(
         label,
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: isDark ? Colors.white : const Color(0xFF0F172A),
+          color: isDark ? Colors.white : AppColors.textPrimary,
         ),
       ),
       trailing: Icon(Icons.chevron_right_rounded,

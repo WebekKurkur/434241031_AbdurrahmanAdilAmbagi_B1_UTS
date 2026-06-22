@@ -173,7 +173,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color:
-                        isDark ? Colors.white : const Color(0xFF0F172A),
+                        isDark ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -197,7 +197,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       fontWeight: FontWeight.w700,
                       color: isDark
                           ? Colors.white
-                          : const Color(0xFF0F172A),
+                          : AppColors.textPrimary,
                     ),
                   ),
                 ),
@@ -261,7 +261,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         fontWeight: FontWeight.w700,
                         color: isDark
                             ? Colors.white
-                            : const Color(0xFF0F172A),
+                            : AppColors.textPrimary,
                       ),
                     ),
                     TextButton(
@@ -351,6 +351,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
+        // 1.5 fits comfortably on 360+px screens. On a 320 px device
+        // the tile is ~144 px wide → ~96 px tall, which still fits
+        // a 2-line title + a single number row.
         childAspectRatio: 1.5,
         children: const [
           ShimmerStatCard(),
@@ -467,7 +470,7 @@ class _StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color:
-              isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+              isDark ? AppColors.dividerDark : AppColors.dividerLight,
         ),
       ),
       child: Column(
@@ -490,7 +493,7 @@ class _StatCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: isDark ? Colors.white : AppColors.textPrimary,
                   height: 1,
                 ),
               ),
@@ -500,8 +503,8 @@ class _StatCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark
-                      ? const Color(0xFF94A3B8)
-                      : const Color(0xFF64748B),
+                      ? AppColors.textMuted
+                      : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -537,8 +540,8 @@ class _QuickActionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
               color: isDark
-                  ? const Color(0xFF2D3F55)
-                  : const Color(0xFFE8EDF5)),
+                  ? AppColors.dividerDark
+                  : AppColors.dividerLight),
         ),
         child: Column(
           children: [
@@ -558,7 +561,7 @@ class _QuickActionCard extends StatelessWidget {
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: isDark
-                    ? const Color(0xFF94A3B8)
+                    ? AppColors.textMuted
                     : const Color(0xFF475569),
               ),
             ),
@@ -627,11 +630,11 @@ class _DbStatusBanner extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5FB),
+        color: isDark ? const Color(0xFF1E293B) : AppColors.surfaceSubtle,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark
-              ? const Color(0xFF334155)
+              ? AppColors.surfaceSubtleDark
               : const Color(0xFFE2E8F0),
         ),
       ),
@@ -672,8 +675,8 @@ class _DbStatusBanner extends ConsumerWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: isDark
-                      ? const Color(0xFF94A3B8)
-                      : const Color(0xFF64748B),
+                      ? AppColors.textMuted
+                      : AppColors.textSecondary,
                   letterSpacing: 1,
                 ),
               ),
@@ -686,7 +689,7 @@ class _DbStatusBanner extends ConsumerWidget {
                   fontSize: 12,
                   color: isDark
                       ? const Color(0xFFCBD5E1)
-                      : const Color(0xFF334155),
+                      : AppColors.surfaceSubtleDark,
                   height: 1.5,
                 ),
               ),

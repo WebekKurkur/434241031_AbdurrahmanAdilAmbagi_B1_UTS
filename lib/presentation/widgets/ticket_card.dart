@@ -38,7 +38,7 @@ class TicketCard extends StatelessWidget {
           color: isDark ? AppColors.cardDark : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+            color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
           ),
         ),
         child: Column(
@@ -68,8 +68,8 @@ class TicketCard extends StatelessWidget {
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: isDark
-                                ? const Color(0xFF64748B)
-                                : const Color(0xFF94A3B8),
+                                ? AppColors.textSecondary
+                                : AppColors.textMuted,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -85,7 +85,7 @@ class TicketCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: isDark
                           ? Colors.white
-                          : const Color(0xFF0F172A),
+                          : AppColors.textPrimary,
                       height: 1.3,
                     ),
                     maxLines: 2,
@@ -97,8 +97,8 @@ class TicketCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark
-                          ? const Color(0xFF94A3B8)
-                          : const Color(0xFF64748B),
+                          ? AppColors.textMuted
+                          : AppColors.textSecondary,
                       height: 1.4,
                     ),
                     maxLines: 2,
@@ -128,8 +128,8 @@ class TicketCard extends StatelessWidget {
                         Icons.chat_bubble_outline_rounded,
                         size: 13,
                         color: isDark
-                            ? const Color(0xFF64748B)
-                            : const Color(0xFF94A3B8),
+                            ? AppColors.textSecondary
+                            : AppColors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -137,8 +137,8 @@ class TicketCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark
-                              ? const Color(0xFF64748B)
-                              : const Color(0xFF94A3B8),
+                              ? AppColors.textSecondary
+                              : AppColors.textMuted,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -146,8 +146,8 @@ class TicketCard extends StatelessWidget {
                         Icons.access_time_rounded,
                         size: 13,
                         color: isDark
-                            ? const Color(0xFF64748B)
-                            : const Color(0xFF94A3B8),
+                            ? AppColors.textSecondary
+                            : AppColors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -155,8 +155,8 @@ class TicketCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark
-                              ? const Color(0xFF64748B)
-                              : const Color(0xFF94A3B8),
+                              ? AppColors.textSecondary
+                              : AppColors.textMuted,
                         ),
                       ),
                     ],

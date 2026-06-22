@@ -31,6 +31,19 @@ class AppColors {
   static const surface = Color(0xFFF8FAFF);
   static const surfaceDark = Color(0xFF121926);
   static const cardDark = Color(0xFF1E293B);
+
+  // Phase G3: semantic text + divider tokens so screens don't
+  // repeat the same hex literal 60+ times.
+  static const textPrimary = Color(0xFF0F172A);
+  static const textSecondary = Color(0xFF64748B);
+  static const textMuted = Color(0xFF94A3B8);
+  static const dividerLight = Color(0xFFE8EDF5);
+  static const dividerDark = Color(0xFF2D3F55);
+
+  // Dark-mode variants: `surfaceSubtleDark` is the dark equivalent of
+  // `0xFFF1F5FB` — a near-card-blue used for icons / pill bgs / etc.
+  static const surfaceSubtleDark = Color(0xFF334155);
+  static const surfaceSubtle = Color(0xFFF1F5FB);
 }
 
 class AppTheme {

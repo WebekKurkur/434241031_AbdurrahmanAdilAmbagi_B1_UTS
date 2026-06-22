@@ -117,8 +117,8 @@ class _UserCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: isDark
-              ? const Color(0xFF2D3F55)
-              : const Color(0xFFE8EDF5),
+              ? AppColors.dividerDark
+              : AppColors.dividerLight,
         ),
       ),
       child: InkWell(
@@ -165,7 +165,7 @@ class _UserCard extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               color: isDark
                                   ? Colors.white
-                                  : const Color(0xFF0F172A),
+                                  : AppColors.textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -198,8 +198,8 @@ class _UserCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
+                            ? AppColors.textMuted
+                            : AppColors.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -236,8 +236,8 @@ class _UserCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark
-                                ? const Color(0xFF94A3B8)
-                                : const Color(0xFF64748B),
+                                ? AppColors.textMuted
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ],

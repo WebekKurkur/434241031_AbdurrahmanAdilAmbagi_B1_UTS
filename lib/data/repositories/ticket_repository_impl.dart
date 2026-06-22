@@ -23,6 +23,29 @@ class TicketRepositoryImpl implements TicketRepository {
   }
 
   @override
+  Future<List<TicketEntity>> getTicketsPage({
+    required int from,
+    required int to,
+    TicketStatus? statusFilter,
+    int pageSize = 20,
+  }) async {
+    final models = await dataSource.getTicketsPage(
+      from: from,
+      to: to,
+      statusFilter: statusFilter,
+      pageSize: pageSize,
+    );
+    return models.cast<TicketEntity>();
+  }
+
+  @override
+  Future<int> countTicketsWithFilter({TicketStatus? statusFilter}) async {
+    return await dataSource.countTicketsWithFilter(
+      statusFilter: statusFilter,
+    );
+  }
+
+  @override
   Future<TicketEntity?> getTicketById(String id) async {
     return await dataSource.getTicketById(id);
   }
@@ -49,6 +72,11 @@ class TicketRepositoryImpl implements TicketRepository {
   @override
   Future<void> assignTicket(String ticketId, String assignedTo) async {
     return await dataSource.assignTicket(ticketId, assignedTo);
+  }
+
+  @override
+  Future<void> deleteTicket(String ticketUuid) async {
+    return await dataSource.deleteTicket(ticketUuid);
   }
 
   /// Fetch helpdesk users for the assign sheet.

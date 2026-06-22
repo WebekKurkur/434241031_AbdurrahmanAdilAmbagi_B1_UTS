@@ -194,7 +194,7 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: isDark ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -205,8 +205,8 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF64748B),
+                        ? AppColors.textMuted
+                        : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -279,8 +279,8 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isDark
-                        ? const Color(0xFF2D3F55)
-                        : const Color(0xFFE8EDF5),
+                        ? AppColors.dividerDark
+                        : AppColors.dividerLight,
                   ),
                 ),
                 child: Row(
@@ -315,7 +315,7 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
                               fontWeight: FontWeight.w600,
                               color: isDark
                                   ? Colors.white
-                                  : const Color(0xFF0F172A),
+                                  : AppColors.textPrimary,
                             ),
                           ),
                           Text(
@@ -325,8 +325,8 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
+                                  ? AppColors.textMuted
+                                  : AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -354,8 +354,8 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF64748B),
+                        ? AppColors.textMuted
+                        : AppColors.textSecondary,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -424,7 +424,7 @@ class _SectionLabel extends StatelessWidget {
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w700,
-        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+        color: isDark ? AppColors.textMuted : AppColors.textSecondary,
       ),
     );
   }
@@ -446,14 +446,14 @@ class _ReadOnlyField extends StatelessWidget {
             : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
         ),
       ),
       child: Text(
         value,
         style: TextStyle(
           fontSize: 14,
-          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+          color: isDark ? AppColors.textMuted : AppColors.textSecondary,
         ),
       ),
     );

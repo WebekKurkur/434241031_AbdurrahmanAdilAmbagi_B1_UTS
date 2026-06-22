@@ -22,6 +22,22 @@ abstract class TicketRepository {
   Future<List<TicketEntity>> getTickets();
   Future<TicketEntity?> getTicketById(String id);
 
+  /// Phase G1: paginated ticket read (FR §4.1).
+  ///
+  /// Returns up to `pageSize` rows starting at offset [from],
+  /// optionally filtered by [statusFilter]. See the data source
+  /// for the underlying PostgREST semantics.
+  Future<List<TicketEntity>> getTicketsPage({
+    required int from,
+    required int to,
+    TicketStatus? statusFilter,
+    int pageSize = 20,
+  });
+
+  /// Phase G1: total ticket count under the current RLS context,
+  /// optionally filtered by status.
+  Future<int> countTicketsWithFilter({TicketStatus? statusFilter});
+
   /// Insert a new ticket and return the server-assigned row.
   ///
   /// The data source generates the public `ticket_code` and
@@ -32,6 +48,12 @@ abstract class TicketRepository {
 
   Future<void> updateTicketStatus(String ticketId, TicketStatus status);
   Future<void> assignTicket(String ticketId, String assignedTo);
+
+  /// Admin-only hard delete. Throws if the caller is not admin.
+  /// Cascades to comments, ticket_history, and notifications.
+  /// Best-effort removes the attached image from the
+  /// `ticket-images` storage bucket.
+  Future<void> deleteTicket(String ticketUuid);
 
   /// Insert a comment on the given ticket.
   ///

@@ -25,6 +25,7 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/ticket/add_ticket_usecase.dart';
 import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
 import '../providers/auth_provider.dart';
+import '../providers/paginated_tickets_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -198,6 +199,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
     ref.invalidate(ticketStatsProvider);
+    invalidateAllPaginatedProviders(ref);
 
     if (!mounted) return;
     setState(() {
@@ -269,7 +271,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
             const Text(
               'Tim helpdesk akan segera menangani tiket Anda.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -400,8 +402,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                     color: isSelected
                         ? AppColors.primary
                         : isDark
-                            ? const Color(0xFF2D3F55)
-                            : const Color(0xFFE8EDF5),
+                            ? AppColors.dividerDark
+                            : AppColors.dividerLight,
                   ),
                   backgroundColor: isDark ? AppColors.cardDark : Colors.white,
                 );
@@ -477,10 +479,10 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
         duration: const Duration(milliseconds: 250),
         height: 200,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : const Color(0xFFF1F5FB),
+          color: isDark ? AppColors.cardDark : AppColors.surfaceSubtle,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+            color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
           ),
         ),
         child: Stack(
@@ -595,10 +597,10 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
     // Empty state: two CTAs (camera + gallery).
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : const Color(0xFFF1F5FB),
+        color: isDark ? AppColors.cardDark : AppColors.surfaceSubtle,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? const Color(0xFF2D3F55) : const Color(0xFFE8EDF5),
+          color: isDark ? AppColors.dividerDark : AppColors.dividerLight,
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -611,7 +613,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                 Icons.add_a_photo_outlined,
                 size: 20,
                 color:
-                    isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    isDark ? AppColors.textMuted : AppColors.textSecondary,
               ),
               const SizedBox(width: 8),
               Text(
@@ -619,7 +621,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: isDark ? Colors.white : AppColors.textPrimary,
                 ),
               ),
             ],
@@ -630,7 +632,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
             style: TextStyle(
               fontSize: 11,
               color:
-                  isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                  isDark ? AppColors.textSecondary : AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 14),
@@ -699,7 +701,7 @@ class _SectionHeader extends StatelessWidget {
       style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w700,
-        color: isDark ? Colors.white : const Color(0xFF0F172A),
+        color: isDark ? Colors.white : AppColors.textPrimary,
       ),
     );
   }

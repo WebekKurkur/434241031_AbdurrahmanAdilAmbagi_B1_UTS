@@ -108,8 +108,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: isSelected
                   ? AppColors.primary
                   : isDark
-                      ? const Color(0xFF64748B)
-                      : const Color(0xFF94A3B8),
+                      ? AppColors.textSecondary
+                      : AppColors.textMuted,
             ),
             const SizedBox(height: 3),
             Text(
@@ -121,8 +121,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: isSelected
                     ? AppColors.primary
                     : isDark
-                        ? const Color(0xFF64748B)
-                        : const Color(0xFF94A3B8),
+                        ? AppColors.textSecondary
+                        : AppColors.textMuted,
               ),
             ),
           ],

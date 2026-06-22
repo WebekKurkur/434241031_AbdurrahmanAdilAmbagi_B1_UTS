@@ -188,8 +188,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             style: TextStyle(
               fontSize: 13,
               color: isDark
-                  ? const Color(0xFF94A3B8)
-                  : const Color(0xFF64748B),
+                  ? AppColors.textMuted
+                  : AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 24),
@@ -289,8 +289,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           style: TextStyle(
             fontSize: 13,
             color: isDark
-                ? const Color(0xFF94A3B8)
-                : const Color(0xFF64748B),
+                ? AppColors.textMuted
+                : AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -300,8 +300,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           style: TextStyle(
             fontSize: 12,
             color: isDark
-                ? const Color(0xFF94A3B8)
-                : const Color(0xFF64748B),
+                ? AppColors.textMuted
+                : AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 20),

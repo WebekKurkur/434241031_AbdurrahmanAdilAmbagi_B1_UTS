@@ -13,6 +13,7 @@ import 'presentation/screens/forgot_password_screen.dart';
 import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/admin_user_list_screen.dart';
 import 'presentation/screens/admin_user_detail_screen.dart';
+import 'presentation/screens/settings_screen.dart';
 import 'domain/entities/user_entity.dart';
 import 'presentation/providers/theme_provider.dart';
 import 'presentation/providers/ticket_provider.dart';
@@ -68,6 +69,7 @@ class MyApp extends ConsumerWidget {
         '/register': (_) => const RegisterScreen(),
         '/forgot-password': (_) => const ForgotPasswordScreen(),
         '/home': (_) => const HomeScreen(),
+        '/settings': (_) => const SettingsScreen(),
         '/admin/users': (_) => const AdminUserListScreen(),
         '/admin/user-detail': (ctx) {
           final user =

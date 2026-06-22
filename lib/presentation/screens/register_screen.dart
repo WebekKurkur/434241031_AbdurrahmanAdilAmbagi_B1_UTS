@@ -210,8 +210,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
+                                  ? AppColors.textMuted
+                                  : AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -233,7 +233,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                               .withValues(alpha: 0.1)
                                           : isDark
                                               ? const Color(0xFF1E293B)
-                                              : const Color(0xFFF1F5FB),
+                                              : AppColors.surfaceSubtle,
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
                                         color: isSelected
@@ -250,8 +250,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                           color: isSelected
                                               ? AppColors.primary
                                               : isDark
-                                                  ? const Color(0xFF94A3B8)
-                                                  : const Color(0xFF64748B),
+                                                  ? AppColors.textMuted
+                                                  : AppColors.textSecondary,
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
@@ -262,8 +262,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                             color: isSelected
                                                 ? AppColors.primary
                                                 : isDark
-                                                    ? const Color(0xFF94A3B8)
-                                                    : const Color(0xFF64748B),
+                                                    ? AppColors.textMuted
+                                                    : AppColors.textSecondary,
                                           ),
                                         ),
                                       ],

@@ -14,11 +14,13 @@ import '../../domain/repositories/ticket_repository.dart';
 import '../../domain/usecases/ticket/add_comment_usecase.dart';
 import '../../domain/usecases/ticket/add_ticket_usecase.dart';
 import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
+import '../../domain/usecases/ticket/delete_ticket_usecase.dart';
 import '../../domain/usecases/ticket/get_ticket_history_usecase.dart';
 import '../../domain/usecases/ticket/get_tickets_usecase.dart';
 import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
 import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
 import 'auth_provider.dart';
+import 'paginated_tickets_provider.dart';
 
 // Data Sources
 final ticketDataSourceProvider = Provider((ref) => TicketDataSource());
@@ -49,6 +51,11 @@ final updateTicketStatusUseCaseProvider = Provider((ref) {
 final assignTicketUseCaseProvider = Provider((ref) {
   final repository = ref.watch(ticketRepositoryProvider);
   return AssignTicketUseCase(repository);
+});
+
+final deleteTicketUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(ticketRepositoryProvider);
+  return DeleteTicketUseCase(repository);
 });
 
 final addCommentUseCaseProvider = Provider((ref) {
@@ -278,6 +285,7 @@ final ticketInvalidatorProvider = Provider<void>((ref) {
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
     ref.invalidate(ticketStatsProvider);
+    _invalidatePaginated(ref);
   });
 
   // 2. Realtime ticket events (new ticket created, status changed,
@@ -293,7 +301,19 @@ final ticketInvalidatorProvider = Provider<void>((ref) {
         ref.invalidate(allTicketsProvider);
         ref.invalidate(userTicketsProvider);
         ref.invalidate(ticketStatsProvider);
+        _invalidatePaginated(ref);
       });
     },
   );
 });
+
+/// Phase G1 helper: refresh every paginated-tickets family key.
+/// Each tab keeps its own page state, so we have to invalidate
+/// all five (Semua / Open / Assigned / Progress / Closed).
+void _invalidatePaginated(Ref ref) {
+  ref.invalidate(paginatedTicketsProvider(null));
+  ref.invalidate(paginatedTicketsProvider(TicketStatus.open));
+  ref.invalidate(paginatedTicketsProvider(TicketStatus.assigned));
+  ref.invalidate(paginatedTicketsProvider(TicketStatus.inProgress));
+  ref.invalidate(paginatedTicketsProvider(TicketStatus.closed));
+}

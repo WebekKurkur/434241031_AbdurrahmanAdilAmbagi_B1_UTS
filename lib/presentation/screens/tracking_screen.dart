@@ -183,7 +183,7 @@ class _TrackingCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isDark
-                    ? const Color(0xFF334155)
+                    ? AppColors.surfaceSubtleDark
                     : const Color(0xFFE2E8F0),
               ),
             ),
@@ -198,7 +198,7 @@ class _TrackingCard extends StatelessWidget {
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF334155)
+                            ? AppColors.surfaceSubtleDark
                             : const Color(0xFFE2E8F0),
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -224,7 +224,7 @@ class _TrackingCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: isDark ? Colors.white : AppColors.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -235,8 +235,8 @@ class _TrackingCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF64748B),
+                        ? AppColors.textMuted
+                        : AppColors.textSecondary,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -249,8 +249,8 @@ class _TrackingCard extends StatelessWidget {
                       Icons.history_rounded,
                       size: 14,
                       color: isDark
-                          ? const Color(0xFF64748B)
-                          : const Color(0xFF94A3B8),
+                          ? AppColors.textSecondary
+                          : AppColors.textMuted,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -258,8 +258,8 @@ class _TrackingCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
+                            ? AppColors.textMuted
+                            : AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -267,8 +267,8 @@ class _TrackingCard extends StatelessWidget {
                       Icons.schedule_rounded,
                       size: 14,
                       color: isDark
-                          ? const Color(0xFF64748B)
-                          : const Color(0xFF94A3B8),
+                          ? AppColors.textSecondary
+                          : AppColors.textMuted,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -276,8 +276,8 @@ class _TrackingCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
+                            ? AppColors.textMuted
+                            : AppColors.textSecondary,
                       ),
                     ),
                     const Spacer(),
@@ -286,8 +286,8 @@ class _TrackingCard extends StatelessWidget {
                         Icons.person_rounded,
                         size: 14,
                         color: isDark
-                            ? const Color(0xFF64748B)
-                            : const Color(0xFF94A3B8),
+                            ? AppColors.textSecondary
+                            : AppColors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -295,8 +295,8 @@ class _TrackingCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
+                              ? AppColors.textMuted
+                              : AppColors.textSecondary,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -376,7 +376,7 @@ class _LoadingState extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isDark
-                  ? const Color(0xFF334155)
+                  ? AppColors.surfaceSubtleDark
                   : const Color(0xFFE2E8F0),
             ),
           ),
@@ -398,14 +398,14 @@ class _EmptyState extends StatelessWidget {
           Icon(
             Icons.timeline_outlined,
             size: 64,
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+            color: isDark ? AppColors.surfaceSubtleDark : const Color(0xFFCBD5E1),
           ),
           const SizedBox(height: 12),
           Text(
             'Belum ada tiket untuk dilacak',
             style: TextStyle(
               fontSize: 14,
-              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              color: isDark ? AppColors.textMuted : AppColors.textSecondary,
             ),
           ),
         ],
@@ -442,7 +442,7 @@ class _ErrorState extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                color: isDark ? Colors.white : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
@@ -451,8 +451,8 @@ class _ErrorState extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 color: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B),
+                    ? AppColors.textMuted
+                    : AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),

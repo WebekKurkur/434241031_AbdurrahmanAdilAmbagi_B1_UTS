@@ -75,7 +75,7 @@ class _TicketHistorySheet extends ConsumerWidget {
                     Icon(
                       Icons.history_rounded,
                       size: 20,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : AppColors.textPrimary,
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -83,7 +83,7 @@ class _TicketHistorySheet extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : AppColors.textPrimary,
                       ),
                     ),
                     const Spacer(),
@@ -93,8 +93,8 @@ class _TicketHistorySheet extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
+                              ? AppColors.textMuted
+                              : AppColors.textSecondary,
                         ),
                       ),
                   ],
@@ -167,14 +167,14 @@ class _EmptyHistory extends StatelessWidget {
           Icon(
             Icons.timeline_outlined,
             size: 56,
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+            color: isDark ? AppColors.surfaceSubtleDark : const Color(0xFFCBD5E1),
           ),
           const SizedBox(height: 12),
           Text(
             'Belum ada aktivitas',
             style: TextStyle(
               fontSize: 14,
-              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              color: isDark ? AppColors.textMuted : AppColors.textSecondary,
             ),
           ),
         ],
@@ -379,7 +379,7 @@ class _HistoryRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : AppColors.textPrimary,
                     ),
                   ),
                   if (_subtitle != null) ...[
@@ -400,8 +400,8 @@ class _HistoryRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       color: isDark
-                          ? const Color(0xFF64748B)
-                          : const Color(0xFF94A3B8),
+                          ? AppColors.textSecondary
+                          : AppColors.textMuted,
                     ),
                   ),
                 ],

@@ -37,6 +37,97 @@ class TicketDataSource {
     }
   }
 
+  /// Phase G1: paginated read of tickets (FR §4.1).
+  ///
+  /// Returns rows ordered by `created_at DESC`, with an optional
+  /// status filter (so the Open / Assigned / Progress / Closed
+  /// tabs can each fetch their own page without bringing along
+  /// rows that would be filtered client-side).
+  ///
+  /// [from] and [to] are 0-indexed offsets passed straight to
+  /// PostgREST's `Range` header. The caller is expected to use
+  /// `pageSize * page` / `pageSize * (page + 1) - 1`.
+  ///
+  /// [pageSize] defaults to 20.
+  Future<List<TicketModel>> getTicketsPage({
+    required int from,
+    required int to,
+    TicketStatus? statusFilter,
+    int pageSize = 20,
+  }) async {
+    final userId = _client.auth.currentUser?.id ?? 'anon';
+    debugPrint(
+        '[tickets] getTicketsPage(from=$from,to=$to,status=${statusFilter?.name ?? '*'}) as user=$userId');
+    try {
+      // PostgREST 2.7.0: filter methods like `.eq()` return a
+      // `PostgrestFilterBuilder`; `.order()` and `.range()` return
+      // `PostgrestTransformBuilder` (no filter methods). So we
+      // must chain `.select() -> .eq() -> .order() -> .range()`.
+      var q = _client
+          .from('tickets')
+          .select('*, creator:created_by(name), assignee:assigned_to(name)');
+
+      if (statusFilter != null) {
+        q = q.eq('status', _statusToDb(statusFilter));
+      }
+
+      final res = await q
+          .order('created_at', ascending: false)
+          .range(from, to)
+          .timeout(const Duration(seconds: 8));
+
+      final rows = res.cast<Map<String, dynamic>>();
+      debugPrint(
+          '[tickets] getTicketsPage returned ${rows.length} rows (pageSize=$pageSize)');
+      final ids = rows.map((r) => r['id'] as String).toList();
+      // Comments are still fetched in bulk for the page so the
+      // ticket cards show their `commentCount` without an extra
+      // round-trip per card.
+      final comments = await _fetchCommentsForTickets(ids);
+      return rows
+          .map((j) => _toModel(j, comments[j['id']] ?? const []))
+          .toList();
+    } catch (e, st) {
+      debugPrint('[tickets] getTicketsPage FAILED: $e\n$st');
+      rethrow;
+    }
+  }
+
+  /// Phase G1: total ticket count under the current RLS context,
+  /// optionally filtered by status. Used by the list screen to
+  /// show the "X of Y" indicator and decide whether there's a
+  /// next page to fetch.
+  Future<int> countTicketsWithFilter({TicketStatus? statusFilter}) async {
+    var q = _client.from('tickets').count(CountOption.exact);
+    if (statusFilter != null) {
+      q = q.eq('status', _statusToDb(statusFilter));
+    }
+    final res = await q.timeout(const Duration(seconds: 8));
+    debugPrint('[tickets] countTicketsWithFilter(status=${statusFilter?.name ?? "*"})'
+        ' returned $res');
+    return res;
+  }
+
+  /// Translate [TicketStatus] to the underlying DB enum string.
+  /// Note: 'done' is the legacy DB value for what is now
+  /// [TicketStatus.closed] — keep the mapping here so callers
+  /// don't have to know about the historical name.
+  String _statusToDb(TicketStatus s) {
+    switch (s) {
+      case TicketStatus.open:
+        return 'open';
+      case TicketStatus.assigned:
+        return 'assigned';
+      case TicketStatus.inProgress:
+        return 'inProgress';
+      case TicketStatus.closed:
+        // Map new "closed" status onto the legacy DB value so we
+        // don't need a follow-up migration. The model already
+        // accepts both `closed` and `done` on read.
+        return 'closed';
+    }
+  }
+
   /// Raw row count under the current RLS context. Useful for
   /// diagnostics: the UI can show this next to the filtered count
   /// so a user can tell whether an empty list is "no rows in DB"
@@ -210,6 +301,31 @@ class TicketDataSource {
         .update({'assigned_to': userId})
         .eq('id', ticketUuid)
         .timeout(const Duration(seconds: 8));
+  }
+
+  /// Phase I: admin-only hard delete.
+  ///
+  /// Calls the `admin_delete_ticket(uuid)` RPC which:
+  ///   1. Re-checks the caller is an admin (`SECURITY DEFINER`
+  ///      defence in depth alongside the UI gate).
+  ///   2. Deletes the row (cascades to comments / ticket_history
+  ///      / notifications).
+  ///   3. Best-effort removes the attached image from the
+  ///      `ticket-images` bucket.
+  ///
+  /// Throws on:
+  ///   * `42501 insufficient_privilege` (caller is not admin).
+  ///   * `P0002` (ticket not found).
+  ///   * network / timeout.
+  Future<void> deleteTicket(String ticketUuid) async {
+    if (ticketUuid.isEmpty) {
+      throw ArgumentError('deleteTicket: ticketUuid is empty');
+    }
+    debugPrint('[tickets] deleteTicket id=$ticketUuid');
+    await _client.rpc(
+      'admin_delete_ticket',
+      params: {'p_ticket': ticketUuid},
+    ).timeout(const Duration(seconds: 10));
   }
 
   /// All users with the helpdesk role. Used by the assign sheet so

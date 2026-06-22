@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import '../providers/paginated_tickets_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../../domain/entities/ticket_entity.dart';
 import '../../domain/entities/user_entity.dart';
@@ -68,6 +69,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
     ref.invalidate(ticketStatsProvider);
+    invalidateAllPaginatedProviders(ref);
     ref.invalidate(ticketByIdProvider(widget.ticketId));
 
     _commentController.clear();
@@ -108,7 +110,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                               fontWeight: FontWeight.w700,
                               color: isDark
                                   ? Colors.white
-                                  : const Color(0xFF0F172A))),
+                                  : AppColors.textPrimary)),
                       const Spacer(),
                       if (busy)
                         const SizedBox(
@@ -153,6 +155,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                                 ref.invalidate(allTicketsProvider);
                                 ref.invalidate(userTicketsProvider);
                                 ref.invalidate(ticketStatsProvider);
+                                invalidateAllPaginatedProviders(ref);
                                 ref.invalidate(
                                     ticketByIdProvider(ticket.id));
                                 if (!mounted) return;
@@ -214,7 +217,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                               fontWeight: FontWeight.w700,
                               color: isDark
                                   ? Colors.white
-                                  : const Color(0xFF0F172A))),
+                                  : AppColors.textPrimary)),
                       const Spacer(),
                       if (busy)
                         const SizedBox(
@@ -235,8 +238,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                               'Belum ada user helpdesk',
                               style: TextStyle(
                                 color: isDark
-                                    ? const Color(0xFF94A3B8)
-                                    : const Color(0xFF64748B),
+                                    ? AppColors.textMuted
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ),
@@ -270,8 +273,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: isDark
-                                          ? const Color(0xFF64748B)
-                                          : const Color(0xFF94A3B8),
+                                          ? AppColors.textSecondary
+                                          : AppColors.textMuted,
                                     ),
                                   )
                                 : null,
@@ -297,6 +300,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                                       ref.invalidate(allTicketsProvider);
                                       ref.invalidate(userTicketsProvider);
                                       ref.invalidate(ticketStatsProvider);
+                                      invalidateAllPaginatedProviders(ref);
                                       ref.invalidate(
                                           ticketByIdProvider(ticket.id));
                                       ref.invalidate(helpdeskUsersProvider);
@@ -346,8 +350,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
+                                  ? AppColors.textMuted
+                                  : AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -378,7 +382,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                           borderRadius: BorderRadius.circular(10),
                           side: BorderSide(
                             color: isDark
-                                ? const Color(0xFF334155)
+                                ? AppColors.surfaceSubtleDark
                                 : const Color(0xFFE2E8F0),
                           ),
                         ),
@@ -388,6 +392,98 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                   ),
                 ],
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Phase I: confirmation dialog before a destructive delete.
+  ///
+  /// We use `StatefulBuilder` + `bool busy` for the same reason as
+  /// the assign sheet: without it the user just sees the buttons
+  /// "freeze" while the RPC is in flight, which reads as
+  /// "buffering". The dialog is also `barrierDismissible: false`
+  /// so an accidental tap-outside can't lose the deletion.
+  void _confirmDelete(BuildContext context, String ticketUuid) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        bool busy = false;
+        return StatefulBuilder(
+          builder: (sbCtx, setLocal) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              icon: Icon(Icons.delete_outline_rounded,
+                  color: AppColors.statusOpen, size: 48),
+              title: const Text('Hapus Tiket?'),
+              content: const Text(
+                'Tindakan ini tidak dapat dibatalkan. Tiket, semua komentar, '
+                'riwayat, dan notifikasi terkait akan dihapus permanen.',
+                textAlign: TextAlign.center,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: busy ? null : () => Navigator.pop(dialogCtx),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: busy ? null : () async {
+                    setLocal(() => busy = true);
+                    try {
+                      await ref
+                          .read(deleteTicketUseCaseProvider)
+                          .call(ticketUuid);
+                      if (!dialogCtx.mounted) return;
+                      Navigator.pop(dialogCtx); // close dialog
+                      if (!context.mounted) return;
+                      // Refresh all list / stats providers so the
+                      // deleted ticket disappears everywhere.
+                      ref.invalidate(allTicketsProvider);
+                      ref.invalidate(userTicketsProvider);
+                      ref.invalidate(ticketStatsProvider);
+                      invalidateAllPaginatedProviders(ref);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Tiket berhasil dihapus'),
+                          backgroundColor: AppColors.statusClosed,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      // Pop back to the list (so the user lands on
+                      // a screen that still exists).
+                      Navigator.popUntil(context, ModalRoute.withName('/home'));
+                    } catch (e) {
+                      if (!dialogCtx.mounted) return;
+                      setLocal(() => busy = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Gagal menghapus tiket: $e'),
+                          backgroundColor: AppColors.statusOpen,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.statusOpen,
+                  ),
+                  child: busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Hapus'),
+                ),
+              ],
             );
           },
         );
@@ -456,11 +552,14 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
         // Role gating (per spec):
         //   * Update Status  → admin + helpdesk
         //   * Assign         → admin only
-        // The DB enforces the same rules in a BEFORE UPDATE trigger
-        // (see migration `0004_role_based_updates.sql`).
+        //   * Delete         → admin only (Phase I)
+        // The DB enforces the same rules in BEFORE UPDATE / RPC
+        // triggers (see migrations `0004_role_based_updates.sql` and
+        // `0007_delete_ticket.sql`).
         final canChangeStatus =
             user.role == UserRole.admin || user.role == UserRole.helpdesk;
         final canAssign = user.role == UserRole.admin;
+        final canDelete = user.role == UserRole.admin;
         final canManage = canChangeStatus || canAssign;
 
         // Read comments from the realtime stream so new
@@ -484,6 +583,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                   _showStatusSheet(context, ticket);
                 } else if (v == 'assign') {
                   _showAssignSheet(context, ticket);
+                } else if (v == 'delete') {
+                  _confirmDelete(context, ticket.id);
                 }
               },
               itemBuilder: (_) => [
@@ -509,6 +610,21 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                       ],
                     ),
                   ),
+                if (canDelete)
+                  const PopupMenuDivider(),
+                if (canDelete)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline_rounded,
+                            size: 18, color: Colors.red),
+                        SizedBox(width: 10),
+                        Text('Hapus Tiket',
+                            style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
               ],
             ),
         ],
@@ -522,37 +638,47 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
               children: [
                 // Image if available
                 if (ticket.imageUrl != null)
-                  Container(
-                    height: 180,
-                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: isDark
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFFEEF2F8),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        ticket.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Center(
-                          child: Icon(Icons.broken_image_outlined,
-                              color: Colors.grey.withValues(alpha: 0.4), size: 40),
+                  // Adaptive image height: ~25% of screen width so it scales
+                  // down on small phones (320 px) and up on tablets without
+                  // ever exceeding ~45% of the available height (so the
+                  // description + comments stay visible).
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final imageHeight =
+                          (constraints.maxWidth * 0.55).clamp(150.0, 280.0);
+                      return Container(
+                        height: imageHeight,
+                        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: isDark
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFEEF2F8),
                         ),
-                        loadingBuilder: (_, child, progress) {
-                          if (progress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              value: progress.expectedTotalBytes != null
-                                  ? progress.cumulativeBytesLoaded /
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            ticket.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(Icons.broken_image_outlined,
+                                  color: Colors.grey.withValues(alpha: 0.4), size: 40),
+                            ),
+                            loadingBuilder: (_, child, progress) {
+                              if (progress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: progress.expectedTotalBytes != null
+                                      ? progress.cumulativeBytesLoaded /
                                       progress.expectedTotalBytes!
                                   : null,
                             ),
                           );
                         },
                       ),
-                    ),
+                        ),
+                      );
+                    },
                   ).animate().fadeIn(duration: 400.ms),
 
                 // Ticket info
@@ -590,7 +716,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                           fontWeight: FontWeight.w800,
                           color: isDark
                               ? Colors.white
-                              : const Color(0xFF0F172A),
+                              : AppColors.textPrimary,
                           height: 1.3,
                         ),
                       ),
@@ -605,8 +731,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isDark
-                                ? const Color(0xFF2D3F55)
-                                : const Color(0xFFE8EDF5),
+                                ? AppColors.dividerDark
+                                : AppColors.dividerLight,
                           ),
                         ),
                         child: Column(
@@ -641,7 +767,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                           fontWeight: FontWeight.w700,
                           color: isDark
                               ? Colors.white
-                              : const Color(0xFF0F172A),
+                              : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -651,7 +777,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                           fontSize: 14,
                           height: 1.6,
                           color: isDark
-                              ? const Color(0xFF94A3B8)
+                              ? AppColors.textMuted
                               : const Color(0xFF475569),
                         ),
                       ),
@@ -684,8 +810,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                         Icon(Icons.chat_bubble_outline_rounded,
                             size: 16,
                             color: isDark
-                                ? const Color(0xFF94A3B8)
-                                : const Color(0xFF64748B)),
+                                ? AppColors.textMuted
+                                : AppColors.textSecondary),
                         const SizedBox(width: 8),
                         Text(
                           'Komentar (${comments.length})',
@@ -694,7 +820,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                             fontWeight: FontWeight.w700,
                             color: isDark
                                 ? Colors.white
-                                : const Color(0xFF0F172A),
+                                : AppColors.textPrimary,
                           ),
                         ),
                       ],
@@ -745,8 +871,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
               border: Border(
                 top: BorderSide(
                   color: isDark
-                      ? const Color(0xFF2D3F55)
-                      : const Color(0xFFE8EDF5),
+                      ? AppColors.dividerDark
+                      : AppColors.dividerLight,
                 ),
               ),
             ),
@@ -819,7 +945,7 @@ class _HistoryButton extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isDark
-                ? const Color(0xFF334155)
+                ? AppColors.surfaceSubtleDark
                 : const Color(0xFFE2E8F0),
           ),
         ),
@@ -848,7 +974,7 @@ class _HistoryButton extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -859,8 +985,8 @@ class _HistoryButton extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark
-                          ? const Color(0xFF94A3B8)
-                          : const Color(0xFF64748B),
+                          ? AppColors.textMuted
+                          : AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -869,8 +995,8 @@ class _HistoryButton extends ConsumerWidget {
             Icon(
               Icons.chevron_right_rounded,
               color: isDark
-                  ? const Color(0xFF64748B)
-                  : const Color(0xFF94A3B8),
+                  ? AppColors.textSecondary
+                  : AppColors.textMuted,
             ),
           ],
         ),
@@ -894,15 +1020,15 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon,
             size: 16,
-            color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+            color: isDark ? AppColors.textSecondary : AppColors.textMuted),
         const SizedBox(width: 10),
         Text(
           label,
           style: TextStyle(
               fontSize: 12,
               color: isDark
-                  ? const Color(0xFF94A3B8)
-                  : const Color(0xFF64748B)),
+                  ? AppColors.textMuted
+                  : AppColors.textSecondary),
         ),
         const Spacer(),
         Text(
@@ -910,7 +1036,7 @@ class _InfoRow extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            color: isDark ? Colors.white : AppColors.textPrimary,
           ),
         ),
       ],
@@ -995,7 +1121,7 @@ class _CommentBubble extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color:
-                      isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      isDark ? AppColors.textMuted : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -1008,7 +1134,7 @@ class _CommentBubble extends StatelessWidget {
                   ? AppColors.primary
                   : isDark
                       ? const Color(0xFF1E293B)
-                      : const Color(0xFFF1F5FB),
+                      : AppColors.surfaceSubtle,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),
@@ -1025,7 +1151,7 @@ class _CommentBubble extends StatelessWidget {
                     ? Colors.white
                     : isDark
                         ? Colors.white
-                        : const Color(0xFF0F172A),
+                        : AppColors.textPrimary,
               ),
             ),
           ),
@@ -1036,7 +1162,7 @@ class _CommentBubble extends StatelessWidget {
               fontSize: 10,
               color: isDark
                   ? const Color(0xFF475569)
-                  : const Color(0xFF94A3B8),
+                  : AppColors.textMuted,
             ),
           ),
         ],

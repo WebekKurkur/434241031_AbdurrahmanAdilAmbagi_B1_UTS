@@ -89,7 +89,7 @@ class _NotificationPanelState extends ConsumerState<NotificationPanel> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : AppColors.textPrimary,
                       ),
                     ),
                     const Spacer(),
@@ -181,14 +181,14 @@ Widget _buildList(
           Icon(
             Icons.notifications_off_outlined,
             size: 64,
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+            color: isDark ? AppColors.surfaceSubtleDark : const Color(0xFFCBD5E1),
           ),
           const SizedBox(height: 12),
           Text(
             'Belum ada notifikasi',
             style: TextStyle(
               fontSize: 14,
-              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              color: isDark ? AppColors.textMuted : AppColors.textSecondary,
             ),
           ),
         ],
@@ -336,7 +336,7 @@ class _NotificationTile extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color: isDark ? Colors.white : AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -346,8 +346,8 @@ class _NotificationTile extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 10,
                           color: isDark
-                              ? const Color(0xFF64748B)
-                              : const Color(0xFF94A3B8),
+                              ? AppColors.textSecondary
+                              : AppColors.textMuted,
                         ),
                       ),
                     ],

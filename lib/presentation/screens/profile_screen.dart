@@ -2,33 +2,13 @@
 //
 // Redesign (2026-06-22) per Figma node 8071:165.
 //
-// Identity card (white, 1 px border, 15 px radius):
-//   56 px purple avatar (#8b5cf6) + name (16 px Bold) + email
-//   (12 px Regular) + role pill (light purple bg, 11 px Semi
-//   Bold purple) + department (11 px Regular #6b7280).
-//
-// Stats row: 2 cards, 85 px tall, 15 px radius
-//   - "Tickets opened" = total userTicketsProvider length
-//   - "Resolved"       = count where status == closed
-//
-// Settings list (single white card, 15 px radius, 1 px border,
-// 212 h):
-//   - Appearance  + "Light" / "Dark" / "System" pill (cycles
-//                   through `themeProvider` on tap)
-//   - Notifications → push NotificationScreen
-//   - Settings    → push /settings
-//   - Help & support → snackbar placeholder
-//   Dividers (1 px #e5e7eb) inset 56 px from left.
-//
-// Sign-out: outlined button, 41.25 px tall, 15 px radius, 1 px
-// border, logout icon + "Sign out" 14 px Semi Bold #ef4444.
-// Confirmation dialog preserved from the previous version.
-//
-// Footer: "Helpdesk v2.0 · Build 2026.06" 11 px Regular #6b7280.
-//
-// Bottom nav is owned by HomeScreen; this screen doesn't draw
-// one. The "Profile" tab is highlighted when this screen is the
-// current tab.
+// 2026-06-24: Phase 8 of the theme refactor (ignore/todo-theme.md).
+// Header, identity card, settings card, footer, sign-out, theme
+// pill all read `context.semantic` so they flip with
+// `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - purple #8B5CF6 avatar + role pill
+//   - blue #2563EB user-management card
+//   - red #EF4444 sign-out + dialog logout
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +18,7 @@ import '../../domain/entities/user_entity.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/ticket_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 import '../widgets/kpi_card.dart';
 import 'notification_screen.dart';
@@ -47,11 +28,12 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
     final user = ref.watch(currentUserProvider);
 
     if (user == null) {
       return Scaffold(
-        backgroundColor: AppColors.authBg,
+        backgroundColor: c.surface,
         body: SafeArea(
           child: Center(
             child: Column(
@@ -63,9 +45,9 @@ class ProfileScreen extends ConsumerWidget {
                   color: AppColors.authPrimary,
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Please login to continue',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: 16, color: c.textPrimary),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -81,7 +63,7 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: c.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -93,7 +75,7 @@ class ProfileScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _Header(),
+                    const _Header(),
                     const SizedBox(height: 18.75),
                     _IdentityCard(user: user),
                     const SizedBox(height: 15),
@@ -105,7 +87,7 @@ class ProfileScreen extends ConsumerWidget {
                     const SizedBox(height: 18.75),
                     const _SettingsCard(),
                     const SizedBox(height: 15),
-                    _SignOutButton(),
+                    const _SignOutButton(),
                     const SizedBox(height: 15),
                     const _Footer(),
                   ],
@@ -124,10 +106,12 @@ class ProfileScreen extends ConsumerWidget {
 // ─────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
+  const _Header();
+
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(18.75, 22.5, 18.75, 0),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18.75, 22.5, 18.75, 0),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
@@ -135,7 +119,7 @@ class _Header extends StatelessWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: AppColors.authFieldText,
+            color: context.semantic.textPrimary,
             letterSpacing: -0.48,
             height: 1.25,
           ),
@@ -155,6 +139,7 @@ class _IdentityCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
     final initials = _initialsFromName(user.name);
     final roleLabel = getRoleLabel(user.role);
 
@@ -163,21 +148,21 @@ class _IdentityCard extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(19.75),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.authBorder),
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
           borderRadius: BorderRadius.circular(15),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x0F0F1115),
+              color: c.shadow,
               blurRadius: 1,
-              offset: Offset(0, 1),
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Avatar
+            // Avatar (56 px circle, brand purple — fixed)
             Container(
               width: 56,
               height: 56,
@@ -206,10 +191,10 @@ class _IdentityCard extends ConsumerWidget {
                 children: [
                   Text(
                     user.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.authFieldText,
+                      color: c.textPrimary,
                       height: 1.5,
                     ),
                     maxLines: 1,
@@ -218,10 +203,10 @@ class _IdentityCard extends ConsumerWidget {
                   const SizedBox(height: 1),
                   Text(
                     user.email,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: AppColors.authHint,
+                      color: c.textSecondary,
                       height: 1.5,
                     ),
                     maxLines: 1,
@@ -235,10 +220,10 @@ class _IdentityCard extends ConsumerWidget {
                       Flexible(
                         child: Text(
                           user.department,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
-                            color: AppColors.authHint,
+                            color: c.textSecondary,
                             height: 1.5,
                           ),
                           maxLines: 1,
@@ -263,6 +248,8 @@ class _RolePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Role pill is brand-purple driven (low-alpha overlay of
+    // the brand color). Stays fixed across modes.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 1.875),
       decoration: BoxDecoration(
@@ -293,11 +280,6 @@ String _initialsFromName(String name) {
 // ─────────────────────────────────────────────────────────────────
 // KPI block (shared `KpiCardHero` + `KpiCardSmall` from
 // `lib/presentation/widgets/kpi_card.dart`).
-//
-// Layout: 1 hero card + 2x2 grid of small cards. Counts come
-// from the role-scoped `ticketStatsProvider` and `userTicketsProvider`,
-// matching the dashboard's KPI section so users see the same
-// numbers across the app.
 // ─────────────────────────────────────────────────────────────────
 
 class _KpiBlock extends ConsumerWidget {
@@ -398,8 +380,7 @@ class _KpiBlock extends ConsumerWidget {
 
 // ─────────────────────────────────────────────────────────────────
 // User Management link (Figma 8098:425) — admin-only blue button
-// that opens `/admin/users`. Sits between the KPI block and the
-// settings list. Hidden for `user` and `helpdesk` roles.
+// that opens `/admin/users`. Brand blue, fixed in both modes.
 // ─────────────────────────────────────────────────────────────────
 
 class _UserManagementLink extends StatelessWidget {
@@ -498,6 +479,7 @@ class _SettingsCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
     final themeMode = ref.watch(themeProvider);
     final themeLabel = _labelFor(themeMode);
 
@@ -505,8 +487,8 @@ class _SettingsCard extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18.75),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.authBorder),
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
           borderRadius: BorderRadius.circular(15),
         ),
         clipBehavior: Clip.antiAlias,
@@ -597,6 +579,7 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11.25),
       child: Row(
@@ -605,19 +588,19 @@ class _Row extends StatelessWidget {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F4F8),
+              color: c.tintNeutral,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(iconData, size: 16, color: AppColors.authHint),
+            child: Icon(iconData, size: 16, color: c.textSecondary),
           ),
           const SizedBox(width: 11.25),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: AppColors.authFieldText,
+                color: c.textPrimary,
                 height: 1.5,
               ),
               maxLines: 1,
@@ -627,10 +610,10 @@ class _Row extends StatelessWidget {
           if (trailing != null)
             trailing!
           else
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               size: 16,
-              color: AppColors.authHint,
+              color: c.textSecondary,
             ),
         ],
       ),
@@ -646,7 +629,7 @@ class _InsetDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 56),
-      child: Container(height: 1, color: AppColors.authBorder),
+      child: Container(height: 1, color: context.semantic.border),
     );
   }
 }
@@ -658,6 +641,7 @@ class _ThemePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -665,16 +649,16 @@ class _ThemePill extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 30),
         padding: const EdgeInsets.symmetric(horizontal: 12.25, vertical: 0),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.authBorder),
+          border: Border.all(color: c.border),
           borderRadius: BorderRadius.circular(33554400),
         ),
         child: Center(
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: AppColors.authHint,
+              color: c.textSecondary,
               height: 1.4,
             ),
           ),
@@ -685,12 +669,15 @@ class _ThemePill extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Sign out (8071:1582-1588)
+// Sign out (8071:1582-1588) — brand red, fixed in both modes.
 // ─────────────────────────────────────────────────────────────────
 
 class _SignOutButton extends ConsumerWidget {
+  const _SignOutButton();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18.75),
       child: SizedBox(
@@ -698,7 +685,7 @@ class _SignOutButton extends ConsumerWidget {
         child: OutlinedButton(
           onPressed: () => _confirmSignOut(context, ref),
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.authBorder),
+            side: BorderSide(color: c.border),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
@@ -805,15 +792,15 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 18.75),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18.75),
       child: Center(
         child: Text(
           'Helpdesk v2.0 · Build 2026.06',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w400,
-            color: AppColors.authHint,
+            color: context.semantic.textSecondary,
             height: 1.5,
           ),
         ),

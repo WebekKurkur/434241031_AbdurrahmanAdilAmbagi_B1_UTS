@@ -2,24 +2,13 @@
 //
 // Redesign (2026-06-22) per Figma node 8071:57.
 //
-// Header: "Tickets" 24 px bold + "X of Y tickets" subtitle +
-// "+ New" blue pill. Always-visible search bar (37.5 px pill).
-// Five horizontally scrollable filter chips (All / Open /
-// In Progress / Assigned / Closed), with the active chip
-// inverted to black-on-light. Ticket cards match the dashboard
-// recent-activity card (extracted to
-// `widgets/ticket_list_card.dart` so we share one source of
-// truth).
-//
-// Behaviour preserved:
-//   - `paginatedTicketsProvider(statusFilter)` for paginated data
-//   - Search filters client-side on title + ticket id
-//   - Pull-to-refresh + load-more on scroll bottom
-//   - Bottom nav owned by HomeScreen — Tickets tab is active
-//   - FAB owned by DashboardScreen — ticket list shows no FAB
-//
-// Note: the Figma copy is English. Indonesian copy ("Semua",
-// "Tiket") has been dropped in favour of the design spec.
+// 2026-06-24: Phase 6 of the theme refactor (ignore/todo-theme.md).
+// Sticky frosted header, search field, filter chips, empty state
+// all now read `context.semantic` so they flip with
+// `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - blue #2563EB "+ New" pill + "Load more" link
+//   - active filter chip inverts via `c.textPrimary` (black in
+//     light, near-white in dark)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -29,6 +18,7 @@ import '../../domain/entities/ticket_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../providers/auth_provider.dart';
 import '../providers/paginated_tickets_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shimmer_card.dart';
 import '../widgets/ticket_list_card.dart';
@@ -93,11 +83,12 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final user = ref.watch(currentUserProvider);
     final state = ref.watch(paginatedTicketsProvider(_activeFilter));
 
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: c.surface,
       body: Stack(
         children: [
           // Scrollable list (under the sticky header).
@@ -236,6 +227,7 @@ class _StickyHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return ClipRect(
       child: BackdropContainer(
         child: Padding(
@@ -253,12 +245,12 @@ class _StickyHeader extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
+                        Text(
                           'Tickets',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.authFieldText,
+                            color: c.textPrimary,
                             letterSpacing: -0.48,
                             height: 1.25,
                           ),
@@ -267,10 +259,10 @@ class _StickyHeader extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
                             '$visibleCount of $totalCount tickets',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: AppColors.authHint,
+                              color: c.textSecondary,
                               height: 1.5,
                             ),
                           ),
@@ -305,13 +297,16 @@ class BackdropContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Frosted-glass header per Figma: `rgba(245,247,250,0.88)`.
+    // Frosted-glass header per Figma spec. In light mode the
+    // surface is `#f5f7fa` at ~80% alpha; in dark mode it flips
+    // to `#0f1115` at the same alpha via `c.surfaceFrosted`.
+    final c = context.semantic;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xE0F5F7FA),
+        color: c.surfaceFrosted,
         border: Border(
           bottom: BorderSide(
-            color: AppColors.authBorder.withValues(alpha: 0.5),
+            color: c.border.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -327,21 +322,24 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 37.5,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.authBorder),
+        // Option A: subtle inset — tintNeutral bg + 1px border.
+        // Matches the admin user-list search + auth fields.
+        color: c.tintNeutral,
+        border: Border.all(color: c.border),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12.25),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.search_rounded,
               size: 15,
-              color: AppColors.authHint,
+              color: c.textHint,
             ),
             const SizedBox(width: 7.5),
             Expanded(
@@ -349,19 +347,19 @@ class _SearchField extends StatelessWidget {
                 controller: controller,
                 onChanged: onChanged,
                 textInputAction: TextInputAction.search,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.authFieldText,
+                  color: c.textPrimary,
                   fontWeight: FontWeight.w400,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isCollapsed: true,
                   contentPadding: EdgeInsets.zero,
                   border: InputBorder.none,
                   hintText: 'Search by title or ID…',
                   hintStyle: TextStyle(
                     fontSize: 14,
-                    color: AppColors.authHint,
+                    color: c.textHint,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -443,6 +441,10 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
+    // Active chip inverts to `c.textPrimary` (light: black,
+    // dark: near-white) for high contrast against `c.surface`.
+    // Inactive chip is `c.surfaceCard` with `c.border` outline.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -451,11 +453,9 @@ class _FilterChip extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 12.25),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF0F1115) : Colors.white,
+          color: active ? c.textPrimary : c.surfaceCard,
           border: Border.all(
-            color: active
-                ? const Color(0xFF0F1115)
-                : AppColors.authBorder,
+            color: active ? c.textPrimary : c.border,
           ),
           borderRadius: BorderRadius.circular(33554400),
         ),
@@ -464,7 +464,7 @@ class _FilterChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: active ? AppColors.authBg : AppColors.authHint,
+            color: active ? c.surface : c.textSecondary,
             letterSpacing: -0.06,
             height: 1.4,
           ),
@@ -480,6 +480,7 @@ class _NewButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Brand blue — fixed in both modes.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -490,9 +491,9 @@ class _NewButton extends StatelessWidget {
           color: AppColors.authPrimary,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             Icon(Icons.add_rounded, size: 14, color: Colors.white),
             SizedBox(width: 5.625),
             Text(
@@ -521,6 +522,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 80),
       child: Column(
@@ -529,15 +531,15 @@ class _EmptyState extends StatelessWidget {
           Icon(
             hasFilter ? Icons.search_off_rounded : Icons.inbox_rounded,
             size: 56,
-            color: AppColors.authHint.withValues(alpha: 0.5),
+            color: c.textSecondary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             hasFilter ? 'No tickets match your search' : 'No tickets yet',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppColors.authHint,
+              color: c.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -545,9 +547,9 @@ class _EmptyState extends StatelessWidget {
             hasFilter
                 ? 'Try a different keyword'
                 : 'New tickets will appear here',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: AppColors.authHint,
+              color: c.textSecondary,
             ),
           ),
         ],

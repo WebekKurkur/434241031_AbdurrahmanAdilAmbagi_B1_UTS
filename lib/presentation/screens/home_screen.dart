@@ -1,8 +1,14 @@
 // lib/presentation/screens/home_screen.dart
 
+// 2026-06-24: Phase 4 of the theme refactor (ignore/todo-theme.md).
+// Bottom-nav pill + bar Material + scaffold bg now read
+// `context.semantic` so the nav flips with `Theme.of(context).brightness`.
+// Brand colors stay fixed: blue active icon/label/bar, red inbox dot.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/notification_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'ticket_list_screen.dart';
@@ -21,21 +27,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.semantic;
 
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: c.surface,
       body: _buildScreen(_currentIndex),
       // FAB is owned by DashboardScreen per Figma node 8071:3.
       // Bottom-nav pill matches Figma node 8077:2878:
-      //   - 50.5 px tall white pill, 15 px radius
-      //   - 1 px #e5e7eb border
-      //   - 6 px blur shadow at 8 % opacity (offset 0,4)
+      //   - 50.5 px tall pill, 15 px radius
+      //   - 1 px border (authBorder in light, semantic border in dark)
+      //   - 6 px blur shadow (8% black in light, 10% white in dark)
       //   - 4 equal-width tabs, 20 px icon, 10 px label
       //   - active tab: #2563eb icon + label (w600), 30×3.75
       //     blue pill above the icon
       bottomNavigationBar: Material(
-        color: AppColors.authBg,
+        color: c.surface,
         elevation: 0,
         child: SafeArea(
           top: false,
@@ -52,14 +58,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 return Container(
                   height: 50.5,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: AppColors.authBorder),
+                    color: c.surfaceCard,
+                    border: Border.all(color: c.border),
                     borderRadius: BorderRadius.circular(15),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x140F1115),
+                        color: c.shadow,
                         blurRadius: 6,
-                        offset: Offset(0, 4),
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -73,29 +79,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   0,
                                   Icons.dashboard_outlined,
                                   Icons.dashboard_rounded,
-                                  'Home',
-                                  isDark)),
+                                  'Home')),
                           Expanded(
                               child: _buildNavItem(
                                   1,
                                   Icons.confirmation_number_outlined,
                                   Icons.confirmation_number_rounded,
-                                  'Tickets',
-                                  isDark)),
+                                  'Tickets')),
                           Expanded(
                               child: _buildNavItem(
                                   2,
                                   Icons.notifications_outlined,
                                   Icons.notifications_rounded,
-                                  'Inbox',
-                                  isDark)),
+                                  'Inbox')),
                           Expanded(
                               child: _buildNavItem(
                                   3,
                                   Icons.person_outline_rounded,
                                   Icons.person_rounded,
-                                  'Profile',
-                                  isDark)),
+                                  'Profile')),
                         ],
                       ),
                       // Active-tab indicator: 30 × 3.75 px blue pill
@@ -147,7 +149,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label, bool isDark) {
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+    final c = context.semantic;
     final isSelected = _currentIndex == index;
 
     // The Inbox tab (index 2) shows a small red dot in the
@@ -173,7 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 size: 20,
                 color: isSelected
                     ? AppColors.authPrimary
-                    : AppColors.authHint,
+                    : c.textHint,
               ),
               if (showDot)
                 Positioned(
@@ -204,7 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   isSelected ? FontWeight.w600 : FontWeight.w500,
               color: isSelected
                   ? AppColors.authPrimary
-                  : AppColors.authHint,
+                  : c.textHint,
               height: 1.5,
             ),
           ),

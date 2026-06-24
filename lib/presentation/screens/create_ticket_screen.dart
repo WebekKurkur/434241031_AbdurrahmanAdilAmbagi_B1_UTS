@@ -2,23 +2,13 @@
 //
 // Create ticket — Figma `8071:435` redesign (2026-06-24).
 //
-// Implements the Figma system documented in
-// `ignore/redesign-main.md` + `ignore/redesign-auth.md`:
-//   - frosted AppHeader 81 px
-//   - `_InputShell` for Subject + Description
-//   - `_CategoryDropdown` (modal bottom sheet of 4 category tiles)
-//   - `_AttachmentDropzone` (dashed, 18 px radius)
-//   - `_ActionBar` footer (Cancel outlined / Submit filled)
-//
-// Behaviour preserved from the legacy screen:
-//   - addTicketUseCaseProvider to create the ticket
-//   - uploadTicketImageUseCaseProvider for the (single) attachment
-//   - provider invalidations on success
-//   - role guard: only UserRole.user may reach this screen
-//   - form validation (subject 1-100 / category required / desc 10-2000)
-//   - spinner + disabled while uploading / submitting
-//   - retry dialog on upload failure
-//   - web fallback (camera hidden, gallery still works via file input)
+// 2026-06-24: Phase 10 of the theme refactor (ignore/todo-theme.md).
+// AppHeader, input shells, category dropdown, dropzone, action
+// bar all read `context.semantic` so they flip with
+// `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - blue #2563EB Submit button + category selected indicator
+//   - red #EF4444 error snackbars
+//   - black image-overlay badges (upload status)
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +24,9 @@ import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
 import '../providers/auth_provider.dart';
 import '../providers/paginated_tickets_provider.dart';
 import '../providers/ticket_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
+import '../widgets/fullscreen_image_viewer.dart';
 
 class CreateTicketScreen extends ConsumerStatefulWidget {
   const CreateTicketScreen({super.key});
@@ -359,7 +351,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
         !_submitting && !_uploading && !_picking && _selectedCategory != null;
 
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: context.semantic.surface,
       body: Stack(
         children: [
           Positioned.fill(
@@ -452,12 +444,13 @@ class _AppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 81,
-      decoration: const BoxDecoration(
-        color: Color(0xCCF5F7FA), // 80% #f5f7fa — frosted
+      decoration: BoxDecoration(
+        color: c.surfaceFrosted, // 80% surface alpha
         border: Border(
-          bottom: BorderSide(color: AppColors.authBorder, width: 1),
+          bottom: BorderSide(color: c.border, width: 1),
         ),
       ),
       child: Padding(
@@ -488,13 +481,13 @@ class _AppHeader extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'New ticket',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F1115),
+                      color: c.textPrimary,
                       letterSpacing: -0.17,
                       height: 22.1 / 17,
                     ),
@@ -504,7 +497,7 @@ class _AppHeader extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 15.6 / 12,
                     ),
                   ),
@@ -526,13 +519,14 @@ class _IconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final btn = InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: SizedBox(
         width: 33.75,
         height: 33.75,
-        child: Icon(icon, size: 20, color: const Color(0xFF0F1115)),
+        child: Icon(icon, size: 20, color: c.textPrimary),
       ),
     );
     return tooltip == null ? btn : Tooltip(message: tooltip!, child: btn);
@@ -557,10 +551,10 @@ class _Field extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF6B7280),
+              color: context.semantic.textSecondary,
               letterSpacing: 0.24,
               height: 16.8 / 12,
             ),
@@ -594,11 +588,15 @@ class _InputShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Option A: subtle inset — tintNeutral bg + 1px border.
+        // Matches the admin user-list search + ticket-list
+        // search + auth fields.
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        border: Border.all(color: c.border, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12.25, vertical: 1),
@@ -606,10 +604,10 @@ class _InputShell extends StatelessWidget {
           controller: controller,
           maxLines: maxLines,
           textCapitalization: TextCapitalization.sentences,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: Color(0xFF0F1115),
+            color: c.textPrimary,
             height: 21 / 14,
           ),
           decoration: InputDecoration(
@@ -617,16 +615,16 @@ class _InputShell extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             border: InputBorder.none,
             hintText: hint,
-            hintStyle: const TextStyle(
+            hintStyle: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: Color(0x800F1115),
+              color: c.textPrimary.withValues(alpha: 0.5),
             ),
             prefixIcon: icon == null
                 ? null
                 : Padding(
                     padding: const EdgeInsets.only(right: 11.25),
-                    child: Icon(icon, size: 16, color: const Color(0xFF6B7280)),
+                    child: Icon(icon, size: 16, color: c.textSecondary),
                   ),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -655,6 +653,7 @@ class _CategoryDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final hasValue = value != null;
     final display = value ?? 'Select a category';
 
@@ -664,9 +663,13 @@ class _CategoryDropdown extends StatelessWidget {
       child: Container(
         height: 41.25,
         decoration: BoxDecoration(
-          color: Colors.white,
+          // Option A: subtle inset — tintNeutral bg + 1px border.
+          // Matches _InputShell + auth fields + search fields.
+          // (The popup sheet itself stays surfaceCard — it's a
+          // modal, not an input field.)
+          color: c.tintNeutral,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.authBorder, width: 1),
+          border: Border.all(color: c.border, width: 1),
         ),
         child: Stack(
           children: [
@@ -681,20 +684,20 @@ class _CategoryDropdown extends StatelessWidget {
                     fontWeight:
                         hasValue ? FontWeight.w500 : FontWeight.w400,
                     color: hasValue
-                        ? const Color(0xFF0F1115)
-                        : const Color(0x800F1115),
+                        ? c.textPrimary
+                        : c.textPrimary.withValues(alpha: 0.5),
                     height: 21 / 14,
                   ),
                 ),
               ),
             ),
-            const Positioned(
+            Positioned(
               right: 12.25,
               top: 12.625,
               child: Icon(
                 Icons.expand_more_rounded,
                 size: 16,
-                color: Color(0xFF6B7280),
+                color: c.textSecondary,
               ),
             ),
           ],
@@ -704,6 +707,7 @@ class _CategoryDropdown extends StatelessWidget {
   }
 
   void _openSheet(BuildContext context) {
+    final c = context.semantic;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -712,15 +716,15 @@ class _CategoryDropdown extends StatelessWidget {
           child: Container(
             margin: const EdgeInsets.fromLTRB(15, 0, 15, 15),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: c.surfaceCard,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.authBorder),
+              border: Border.all(color: c.border),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -728,7 +732,7 @@ class _CategoryDropdown extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF0F1115),
+                        color: c.textPrimary,
                       ),
                     ),
                   ),
@@ -744,7 +748,7 @@ class _CategoryDropdown extends StatelessWidget {
                             : FontWeight.w400,
                         color: cat == value
                             ? AppColors.authPrimary
-                            : const Color(0xFF0F1115),
+                            : c.textPrimary,
                       ),
                     ),
                     trailing: cat == value
@@ -804,6 +808,7 @@ class _AttachmentDropzone extends StatelessWidget {
       );
     }
 
+    final c = context.semantic;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -819,29 +824,29 @@ class _AttachmentDropzone extends StatelessWidget {
                   ),
           child: DashedBorderContainer(
             radius: 18,
-            color: AppColors.authBorder,
+            color: c.border,
             child: Container(
               height: 90,
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F4F8),
+                color: c.tintNeutral,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
-                children: const [
+                children: [
                   Icon(
                     Icons.cloud_upload_outlined,
                     size: 18,
-                    color: Color(0xFF6B7280),
+                    color: c.textSecondary,
                   ),
-                  SizedBox(height: 3.75),
+                  const SizedBox(height: 3.75),
                   Text(
                     'Click to attach files',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 18.2 / 13,
                     ),
                   ),
@@ -850,7 +855,7 @@ class _AttachmentDropzone extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 15.4 / 11,
                     ),
                   ),
@@ -874,6 +879,7 @@ class _AttachmentDropzone extends StatelessWidget {
     required VoidCallback onCamera,
     required VoidCallback onGallery,
   }) {
+    final c = context.semantic;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -881,9 +887,9 @@ class _AttachmentDropzone extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: c.surfaceCard,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.authBorder),
+            border: Border.all(color: c.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -929,19 +935,29 @@ class _AttachmentPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 240,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F4F8),
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        border: Border.all(color: c.border, width: 1),
       ),
       child: Stack(
         children: [
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(17),
-              child: Image.memory(bytes, fit: BoxFit.cover),
+              // Tap to view fullscreen (with pinch-to-zoom).
+              // Disabled during upload so the user can't open the
+              // viewer while the bytes are still being sent.
+              child: GestureDetector(
+                onTap: uploading
+                    ? null
+                    : () => _openFullscreen(context),
+                behavior: HitTestBehavior.opaque,
+                child: Image.memory(bytes, fit: BoxFit.cover),
+              ),
             ),
           ),
           Positioned(
@@ -951,6 +967,8 @@ class _AttachmentPreview extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
+                // Black image overlay — stays fixed in both modes
+                // (the image content is the visible surface).
                 color: Colors.black.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -1011,6 +1029,13 @@ class _AttachmentPreview extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _openFullscreen(BuildContext context) {
+    Navigator.of(context).push(fullscreenImageRoute(
+      imageProvider: MemoryImage(bytes),
+      fileName: fileName,
+    ));
   }
 }
 
@@ -1107,17 +1132,18 @@ class _ActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final busy = submitting || uploading;
     return Material(
-      color: AppColors.authBg,
+      color: c.surface,
       elevation: 0,
       child: SafeArea(
         top: false,
         child: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.authBg,
+          decoration: BoxDecoration(
+            color: c.surface,
             border: Border(
-              top: BorderSide(color: AppColors.authBorder, width: 1),
+              top: BorderSide(color: c.border, width: 1),
             ),
           ),
           padding: const EdgeInsets.fromLTRB(18.75, 12.25, 18.75, 11.25),
@@ -1166,8 +1192,9 @@ class _OutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Material(
-      color: Colors.white,
+      color: c.surfaceCard,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -1176,15 +1203,15 @@ class _OutlineButton extends StatelessWidget {
           height: 41.25,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.authBorder, width: 1),
+            border: Border.all(color: c.border, width: 1),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF0F1115),
+              color: c.textPrimary,
               height: 21 / 15,
             ),
           ),

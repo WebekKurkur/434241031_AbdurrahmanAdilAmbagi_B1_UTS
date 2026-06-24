@@ -20,7 +20,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/errors/app_exception.dart';
 import '../providers/auth_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_semantic.dart';
 import '../widgets/auth_field.dart';
 import '../widgets/auth_scaffold.dart';
 
@@ -115,13 +115,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildLogo() {
+    final c = context.semantic;
     return Row(
       children: [
         Container(
           width: 37.5,
           height: 37.5,
           decoration: BoxDecoration(
-            color: AppColors.authPrimary,
+            color: const Color(0xFF2563EB), // brand blue, fixed
             borderRadius: BorderRadius.circular(18),
           ),
           child: const Icon(
@@ -134,13 +135,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             Text(
               'Helpdesk',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: AppColors.authFieldText,
+                color: c.textPrimary,
                 letterSpacing: -0.16,
                 height: 1.5,
               ),
@@ -150,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
-                color: AppColors.authHint,
+                color: c.textSecondary,
                 height: 1.5,
               ),
             ),
@@ -161,26 +162,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildHeading() {
+    final c = context.semantic;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           'Welcome back',
           style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w700,
-            color: AppColors.authFieldText,
+            color: c.textPrimary,
             letterSpacing: -0.52,
             height: 1.25,
           ),
         ),
-        SizedBox(height: 3.75),
+        const SizedBox(height: 3.75),
         Text(
           'Sign in to manage and resolve support tickets.',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: AppColors.authHint,
+            color: c.textSecondary,
             height: 1.5,
           ),
         ),
@@ -219,7 +221,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
               size: 18,
-              color: AppColors.authHint,
+              color: context.semantic.textSecondary,
             ),
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
@@ -265,6 +267,7 @@ class _RememberForgotRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -278,23 +281,23 @@ class _RememberForgotRow extends StatelessWidget {
                 onChanged: onRememberChanged,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
-                side: const BorderSide(
-                  color: AppColors.authHint,
+                side: BorderSide(
+                  color: c.textSecondary,
                   width: 1,
                 ),
-                activeColor: AppColors.authPrimary,
+                activeColor: const Color(0xFF2563EB), // brand blue, fixed
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
             ),
             const SizedBox(width: 7.5),
-            const Text(
+            Text(
               'Remember me',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: AppColors.authHint,
+                color: c.textSecondary,
                 height: 1.4,
               ),
             ),
@@ -303,14 +306,14 @@ class _RememberForgotRow extends StatelessWidget {
         GestureDetector(
           onTap: onForgotTap,
           behavior: HitTestBehavior.opaque,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
             child: Text(
               'Forgot password?',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: AppColors.authPrimary,
+                color: const Color(0xFF2563EB), // brand blue, fixed
                 height: 1.5,
               ),
             ),
@@ -327,24 +330,33 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.authErrorBg,
+        // Error banner bg flips: pale-red tint in light mode
+        // (#FEF2F2), tintNeutral in dark mode (low-key muted
+        // surface) so the brand red icon + text pop.
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.authError.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: AppColors.authError, size: 16),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFEF4444), // brand red, fixed
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
                 fontSize: 12,
-                color: AppColors.authError,
+                color: Color(0xFFEF4444), // brand red, fixed
                 fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
@@ -368,8 +380,9 @@ class _SignInButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.authPrimary,
-          disabledBackgroundColor: AppColors.authPrimary.withValues(alpha: 0.6),
+          backgroundColor: const Color(0xFF2563EB), // brand blue, fixed
+          disabledBackgroundColor:
+              const Color(0xFF2563EB).withValues(alpha: 0.6),
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -407,26 +420,27 @@ class _RegisterLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Center(
       child: GestureDetector(
         onTap: busy ? null : onTap,
         behavior: HitTestBehavior.opaque,
         child: RichText(
           textAlign: TextAlign.center,
-          text: const TextSpan(
-            style: TextStyle(fontSize: 12, height: 1.5),
+          text: TextSpan(
+            style: const TextStyle(fontSize: 12, height: 1.5),
             children: [
               TextSpan(
                 text: 'Need an account? ',
                 style: TextStyle(
-                  color: AppColors.authHint,
+                  color: c.textSecondary,
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              TextSpan(
+              const TextSpan(
                 text: 'Register',
                 style: TextStyle(
-                  color: AppColors.authPrimary,
+                  color: Color(0xFF2563EB), // brand blue, fixed
                   fontWeight: FontWeight.w500,
                 ),
               ),

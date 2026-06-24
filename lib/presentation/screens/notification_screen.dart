@@ -2,34 +2,13 @@
 //
 // Redesign (2026-06-22) per Figma node 8071:111.
 //
-// Title is "Inbox" (per the design) even though this screen is
-// reached from the bottom-nav "Inbox" tab and used to be called
-// "NotificationScreen" internally.
-//
-// Header: 24 px "Inbox" + "X unread" subtitle + "Mark all" pill
-// (33.75 × 18 radius) + 33.75 × 33.75 px icon-only pill (filter).
-//
-// Body: notifications grouped by date — "Today" / "Earlier".
-// Each card: 33.75 × 33.75 px icon container + title (14 px
-// Semi Bold) + right-aligned timestamp + body (13 px Regular).
-// Unread cards have:
-//   - icon container bg `rgba(59,130,246,0.12)` (light blue)
-//   - 7.5 px blue dot on the right
-//
-// Tap-to-mark-read + navigate to ticket is preserved. Mark all
-// triggers the existing use case and invalidates unreadCountProvider
-// so the bell badge refreshes.
-//
-// Behaviour preserved:
-//   - `notificationsStreamProvider` for realtime list
-//   - `markNotificationReadUseCaseProvider` per-item
-//   - `markAllNotificationsReadUseCaseProvider` for header pill
-//   - Tap → mark read → push `TicketDetailScreen`
-//   - `NotificationPanel` (bottom-sheet from the bell) untouched
-//
-// Bottom nav is owned by HomeScreen; this screen doesn't draw
-// one. The "Inbox" tab is highlighted when this screen is the
-// current tab in HomeScreen.
+// 2026-06-24: Phase 7 of the theme refactor (ignore/todo-theme.md).
+// Header, panel, grouped list, cards all read `context.semantic`
+// so they flip with `Theme.of(context).brightness`. Brand colors
+// stay fixed:
+//   - blue #3B82F6 unread icon + dot
+//   - blue #2563EB unread dot at right of card
+//   - low-alpha brand tints for unread icon container
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/notification_entity.dart';
 import '../../domain/usecases/notification/mark_notification_read_usecase.dart';
 import '../providers/notification_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 import 'ticket_detail_screen.dart';
 
@@ -74,7 +54,7 @@ class _NotificationPanelState extends ConsumerState<NotificationPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.semantic;
     final notificationsAsync = ref.watch(notificationsStreamProvider);
     final notifications = notificationsAsync.valueOrNull ?? const [];
 
@@ -86,7 +66,7 @@ class _NotificationPanelState extends ConsumerState<NotificationPanel> {
       builder: (_, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? AppColors.cardDark : Colors.white,
+            color: c.surfaceCard,
             borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(20)),
           ),
@@ -97,7 +77,7 @@ class _NotificationPanelState extends ConsumerState<NotificationPanel> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
+                  color: c.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -110,7 +90,7 @@ class _NotificationPanelState extends ConsumerState<NotificationPanel> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : AppColors.textPrimary,
+                        color: c.textPrimary,
                       ),
                     ),
                     const Spacer(),
@@ -129,7 +109,7 @@ class _NotificationPanelState extends ConsumerState<NotificationPanel> {
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              Divider(height: 1, color: c.border),
               Expanded(
                 child: _buildPanelList(
                   context,
@@ -150,6 +130,7 @@ Widget _buildPanelList(
   List<NotificationEntity> notifications,
   ScrollController scrollController,
 ) {
+  final c = context.semantic;
   if (notifications.isEmpty) {
     return Center(
       child: Column(
@@ -158,14 +139,14 @@ Widget _buildPanelList(
           Icon(
             Icons.notifications_off_outlined,
             size: 64,
-            color: AppColors.authHint.withValues(alpha: 0.5),
+            color: c.textSecondary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Belum ada notifikasi',
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.authHint,
+              color: c.textSecondary,
             ),
           ),
         ],
@@ -176,7 +157,7 @@ Widget _buildPanelList(
     controller: scrollController,
     padding: const EdgeInsets.symmetric(vertical: 4),
     itemCount: notifications.length,
-    separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+    separatorBuilder: (_, __) => Divider(height: 1, color: c.border),
     itemBuilder: (_, i) => _PanelTile(notification: notifications[i]),
   );
 }
@@ -243,7 +224,7 @@ class NotificationScreen extends ConsumerWidget {
     final unreadCount = notifications.where((n) => n.isUnread).length;
 
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: context.semantic.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -300,6 +281,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18.75, 18.75, 18.75, 15),
       child: Row(
@@ -310,12 +292,12 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   'Inbox',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.authFieldText,
+                    color: c.textPrimary,
                     letterSpacing: -0.48,
                     height: 1.25,
                   ),
@@ -326,10 +308,10 @@ class _Header extends StatelessWidget {
                     loading
                         ? 'Loading…'
                         : '$unreadCount unread',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: AppColors.authHint,
+                      color: c.textSecondary,
                       height: 1.5,
                     ),
                   ),
@@ -370,6 +352,7 @@ class _PillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final enabled = onTap != null;
     return Opacity(
       opacity: enabled ? 1 : 0.5,
@@ -380,21 +363,21 @@ class _PillButton extends StatelessWidget {
           height: 33.75,
           padding: const EdgeInsets.symmetric(horizontal: 12.25),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: AppColors.authBorder),
+            color: c.surfaceCard,
+            border: Border.all(color: c.border),
             borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: AppColors.authHint),
+              Icon(icon, size: 14, color: c.textSecondary),
               const SizedBox(width: 5.625),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.authHint,
+                  color: c.textSecondary,
                   height: 1.4,
                 ),
               ),
@@ -412,6 +395,7 @@ class _IconPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return GestureDetector(
       onTap: () {
         // No-op for now — could open a filter sheet (e.g.
@@ -428,11 +412,11 @@ class _IconPillButton extends StatelessWidget {
         width: 33.75,
         height: 33.75,
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.authBorder),
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Icon(icon, size: 16, color: AppColors.authHint),
+        child: Icon(icon, size: 16, color: c.textSecondary),
       ),
     );
   }
@@ -554,10 +538,10 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18.75, 15, 18.75, 0),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppColors.authHint,
+          color: context.semantic.textSecondary,
           letterSpacing: 0.66,
           height: 1.5,
         ),
@@ -576,13 +560,18 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final unread = notification.isUnread;
+    // Unread icon container uses a low-alpha brand-blue overlay —
+    // stays fixed across modes (reads OK on both surfaces).
+    // Read icon container uses `tintNeutral` so it flips with
+    // the theme.
     final iconBg = unread
         ? const Color(0x1F3B82F6) // rgba(59,130,246,0.12)
-        : const Color(0xFFF1F4F8);
+        : c.tintNeutral;
     final iconColor = unread
         ? const Color(0xFF3B82F6)
-        : AppColors.authHint;
+        : c.textSecondary;
     final iconData = _iconFor(notification.type);
 
     return GestureDetector(
@@ -591,8 +580,8 @@ class _NotificationCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14.125),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.authBorder),
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
           borderRadius: BorderRadius.circular(15),
         ),
         child: Row(
@@ -626,7 +615,7 @@ class _NotificationCard extends StatelessWidget {
                             fontWeight: unread
                                 ? FontWeight.w600
                                 : FontWeight.w600,
-                            color: AppColors.authFieldText,
+                            color: c.textPrimary,
                             height: 1.5,
                           ),
                           maxLines: 1,
@@ -638,10 +627,10 @@ class _NotificationCard extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           _formatRelative(notification.createdAt),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
-                            color: AppColors.authHint,
+                            color: c.textSecondary,
                             height: 1.5,
                           ),
                         ),
@@ -651,10 +640,10 @@ class _NotificationCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     notification.body,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: AppColors.authHint,
+                      color: c.textSecondary,
                       height: 1.5,
                     ),
                     maxLines: 2,
@@ -663,7 +652,8 @@ class _NotificationCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Unread dot — only for unread, aligned with title row
+            // Unread dot — only for unread, aligned with title row.
+            // Brand blue, fixed in both modes.
             if (unread) ...[
               const SizedBox(width: 8),
               Padding(
@@ -705,6 +695,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 80),
       child: Column(
@@ -713,23 +704,23 @@ class _EmptyState extends StatelessWidget {
           Icon(
             Icons.inbox_rounded,
             size: 56,
-            color: AppColors.authHint.withValues(alpha: 0.5),
+            color: c.textSecondary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No notifications yet',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppColors.authHint,
+              color: c.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             "We'll let you know when something happens",
             style: TextStyle(
               fontSize: 12,
-              color: AppColors.authHint,
+              color: c.textSecondary,
             ),
           ),
         ],
@@ -758,6 +749,8 @@ IconData _iconFor(String type) {
 }
 
 Color _iconFgFor(String type) {
+  // These map to status colors (open / assigned / in-progress /
+  // closed) and stay fixed across modes.
   switch (type) {
     case 'assigned':
       return AppColors.statusAssigned;

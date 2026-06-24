@@ -7,6 +7,22 @@
 // follow the React+Tailwind source node-by-node; behaviour
 // (realtime comments, history, send, manage sheet) is preserved
 // from the legacy implementation.
+//
+// 2026-06-24: Phase 11 of the theme refactor (ignore/todo-theme.md).
+// AppHeader, status row, person cards, attachments card,
+// description card, tracking link, comment bubbles, reply bar,
+// manage/status/assign sheets, history sheet, loading + error
+// states all read `context.semantic` so they flip with
+// `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - purple #8B5CF6 (requester + user comment avatars)
+//   - blue #2563EB (assignee + admin/helpdesk avatars, send
+//     button, history "created" dot, assign sheet check)
+//   - red #EF4444 (category dot, delete icon/text,
+//     delete-confirm button bg)
+//   - amber #F59E0B (tracking link icon, history "status_changed")
+//   - green #43A047 (history "closed" dot)
+//   - status colors (open/assigned/inProgress/closed fg+bg)
+//   - white on avatar text + send button text (sits on colored bg)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -20,9 +36,10 @@ import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
 import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
 import '../providers/auth_provider.dart';
 import '../providers/paginated_tickets_provider.dart';
-import '../providers/theme_provider.dart';
 import '../providers/ticket_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
+import '../widgets/fullscreen_image_viewer.dart';
 import 'tracking_screen.dart';
 
 class TicketDetailScreen extends ConsumerStatefulWidget {
@@ -248,7 +265,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
     final canManage = canManageTicket(me?.role);
 
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: context.semantic.surface,
       resizeToAvoidBottomInset: true,
       body: ticketAsync.when(
         loading: () => const _LoadingScaffold(),
@@ -361,7 +378,7 @@ bool canManageTicket(UserRole? role) =>
 // AppHeader — 81 px frosted, back 20px icon, TKT-001 + category, theme toggle
 // ===========================================================================
 
-class _AppHeader extends ConsumerWidget {
+class _AppHeader extends StatelessWidget {
   final String ticketCode;
   final String category;
   final bool canManage;
@@ -374,14 +391,14 @@ class _AppHeader extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeProvider) == ThemeMode.dark;
+  Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 81,
-      decoration: const BoxDecoration(
-        color: Color(0xCCF5F7FA), // 80% #f5f7fa
+      decoration: BoxDecoration(
+        color: c.surfaceFrosted, // 80% surface alpha
         border: Border(
-          bottom: BorderSide(color: AppColors.authBorder, width: 1),
+          bottom: BorderSide(color: c.border, width: 1),
         ),
       ),
       child: Padding(
@@ -405,10 +422,10 @@ class _AppHeader extends ConsumerWidget {
                       child: SizedBox(
                         width: 33.75,
                         height: 33.75,
-                        child: const Icon(
+                        child: Icon(
                           Icons.arrow_back_rounded,
                           size: 20,
-                          color: Color(0xFF0F1115),
+                          color: c.textPrimary,
                         ),
                       ),
                     ),
@@ -425,50 +442,28 @@ class _AppHeader extends ConsumerWidget {
                 children: [
                   Text(
                     ticketCode.isEmpty ? 'Ticket' : ticketCode,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F1115),
+                      color: c.textPrimary,
                       letterSpacing: -0.17,
                       height: 22.1 / 17,
                     ),
                   ),
                   Text(
                     category,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 15.6 / 12,
                     ),
                   ),
                 ],
               ),
             ),
-            // Theme toggle (8071:609)
-            InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => ref.read(themeProvider.notifier).cycle(),
-              child: Container(
-                width: 33.75,
-                height: 33.75,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.authBorder,
-                    width: 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  isDark
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded,
-                  size: 16,
-                  color: const Color(0xFF0F1115),
-                ),
-              ),
-            ),
+            // (Theme toggle removed — lives on profile + settings
+            // per the latest IA)
             // 3-dots menu — only shown for admin / helpdesk.
             // Opens the manage sheet (Update status, Assign to,
             // Delete ticket — gated by role inside the sheet).
@@ -483,15 +478,15 @@ class _AppHeader extends ConsumerWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppColors.authBorder,
+                      color: c.border,
                       width: 1,
                     ),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
+                  child: Icon(
                     Icons.more_vert_rounded,
                     size: 18,
-                    color: Color(0xFF0F1115),
+                    color: c.textPrimary,
                   ),
                 ),
               ),
@@ -522,6 +517,7 @@ class _StatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final (label, fg, bg) = _statusColors(status);
     return Row(
       children: [
@@ -576,7 +572,7 @@ class _StatusRow extends StatelessWidget {
                 width: 7.5,
                 height: 7.5,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
+                  color: Color(0xFFEF4444), // brand red dot
                   shape: BoxShape.circle,
                 ),
               ),
@@ -587,10 +583,10 @@ class _StatusRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF6B7280),
+                    color: c.textSecondary,
                     height: 18 / 12,
                   ),
                 ),
@@ -632,10 +628,10 @@ class _Title extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF0F1115),
+        color: context.semantic.textPrimary,
         letterSpacing: -0.44,
         height: 28.6 / 22,
       ),
@@ -652,10 +648,10 @@ class _CreatedLine extends StatelessWidget {
     final fmt = DateFormat('d MMMM y, HH:mm', 'id_ID');
     return Text(
       fmt.format(date),
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF6B7280),
+        color: context.semantic.textSecondary,
         height: 18 / 12,
       ),
     );
@@ -684,7 +680,7 @@ class _PersonCards extends StatelessWidget {
           _PersonCard(
             label: 'Requester',
             name: requesterName,
-            avatarColor: const Color(0xFF8B5CF6),
+            avatarColor: const Color(0xFF8B5CF6), // brand purple
             isAssigned: true,
           ),
           const SizedBox(width: 11.25),
@@ -692,8 +688,11 @@ class _PersonCards extends StatelessWidget {
             label: 'Assignee',
             name: assigneeName ?? 'Unassigned',
             avatarColor: assigneeName == null
+                // Unassigned avatar — muted gray, kept fixed per Figma.
+                // (Could use c.textHint, but a flat gray reads more
+                //  "placeholder" on both surfaces.)
                 ? const Color(0xFF94A3B8)
-                : const Color(0xFF2563EB),
+                : const Color(0xFF2563EB), // brand blue
             isAssigned: false,
           ),
         ],
@@ -716,13 +715,14 @@ class _PersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(11),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.surfaceCard,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.authBorder, width: 1),
+          border: Border.all(color: c.border, width: 1),
         ),
         child: Row(
           children: [
@@ -736,6 +736,8 @@ class _PersonCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Text(
                 _initials(name),
+                // White text on the colored avatar — stays
+                // white in both modes.
                 style: const TextStyle(
                   fontSize: 12.16,
                   fontWeight: FontWeight.w600,
@@ -753,10 +755,10 @@ class _PersonCard extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 16.5 / 11,
                     ),
                     maxLines: 1,
@@ -764,10 +766,10 @@ class _PersonCard extends StatelessWidget {
                   ),
                   Text(
                     name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F1115),
+                      color: c.textPrimary,
                       height: 19.5 / 13,
                     ),
                     maxLines: 1,
@@ -804,12 +806,13 @@ class _AttachmentsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final c = context.semantic;
     return Container(
       height: 295,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.surfaceCard,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        border: Border.all(color: c.border, width: 1),
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
@@ -828,12 +831,24 @@ class _AttachmentsCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 7.5),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  imageUrl!,
-                  width: double.infinity,
-                  height: 231.5,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const _AttachmentRow(),
+                // Tap to view fullscreen (with pinch-to-zoom).
+                // Extracts a filename from the URL's last path
+                // segment so the viewer chip can show it.
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    fullscreenImageRoute(
+                      imageProvider: NetworkImage(imageUrl!),
+                      fileName: _filenameFromUrl(imageUrl!),
+                    ),
+                  ),
+                  behavior: HitTestBehavior.opaque,
+                  child: Image.network(
+                    imageUrl!,
+                    width: double.infinity,
+                    height: 231.5,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const _AttachmentRow(),
+                  ),
                 ),
               ),
             )
@@ -846,6 +861,22 @@ class _AttachmentsCard extends StatelessWidget {
       ),
     );
   }
+
+  /// Extracts a displayable filename from a Supabase Storage URL.
+  /// Supabase URLs look like:
+  ///   `https://<host>/storage/v1/object/sign/ticket-images/<uuid>.jpg?...`
+  /// → returns `<uuid>.jpg` (or the last path segment if no query
+  /// string).
+  static String _filenameFromUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final segments = uri.pathSegments;
+      if (segments.isEmpty) return 'attachment';
+      return segments.last;
+    } catch (_) {
+      return 'attachment';
+    }
+  }
 }
 
 class _AttachmentRow extends StatelessWidget {
@@ -853,12 +884,13 @@ class _AttachmentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 231.5,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F4F8),
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        border: Border.all(color: c.border, width: 1),
       ),
       child: Row(
         children: [
@@ -867,24 +899,27 @@ class _AttachmentRow extends StatelessWidget {
             width: 33.75,
             height: 33.75,
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Inset icon chip on the tinted row — uses the
+              // card surface (white in light, dark-grey in dark)
+              // so the icon stays distinct from the tinted row bg.
+              color: c.surfaceCard,
               borderRadius: BorderRadius.circular(14),
             ),
             alignment: Alignment.center,
-            child: const Icon(
+            child: Icon(
               Icons.image_outlined,
               size: 16,
-              color: Color(0xFF6B7280),
+              color: c.textSecondary,
             ),
           ),
           const SizedBox(width: 11.25),
-          const Expanded(
+          Expanded(
             child: Text(
               'picture',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF0F1115),
+                color: c.textPrimary,
                 height: 19.5 / 13,
               ),
             ),
@@ -906,12 +941,13 @@ class _DescriptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.surfaceCard,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        border: Border.all(color: c.border, width: 1),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -921,10 +957,10 @@ class _DescriptionCard extends StatelessWidget {
           const SizedBox(height: 7.5),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF0F1115),
+              color: c.textPrimary,
               height: 22.4 / 14,
             ),
           ),
@@ -945,15 +981,16 @@ class _TrackingLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return InkWell(
       borderRadius: BorderRadius.circular(15),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.surfaceCard,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: AppColors.authBorder, width: 1),
+          border: Border.all(color: c.border, width: 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -964,6 +1001,8 @@ class _TrackingLink extends StatelessWidget {
                   width: 33.75,
                   height: 33.75,
                   decoration: BoxDecoration(
+                    // Brand amber low-alpha overlay — reads OK
+                    // on both card surfaces.
                     color: const Color(0xFFF59E0B).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -979,21 +1018,21 @@ class _TrackingLink extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'View tracking',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF0F1115),
+                        color: c.textPrimary,
                         height: 21 / 14,
                       ),
                     ),
                     Text(
                       '$eventCount event${eventCount == 1 ? '' : 's'}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF6B7280),
+                        color: c.textSecondary,
                         height: 18 / 12,
                       ),
                     ),
@@ -1001,12 +1040,12 @@ class _TrackingLink extends StatelessWidget {
                 ),
               ],
             ),
-            const Text(
+            Text(
               '›',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF6B7280),
+                color: c.textSecondary,
                 height: 27 / 18,
               ),
             ),
@@ -1029,10 +1068,10 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text.toUpperCase(),
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF6B7280),
+        color: context.semantic.textSecondary,
         letterSpacing: 0.66,
         height: 16.5 / 11,
       ),
@@ -1051,6 +1090,7 @@ class _CommentsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1061,24 +1101,24 @@ class _CommentsSection extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: c.surfaceCard,
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: AppColors.authBorder, width: 1),
+              border: Border.all(color: c.border, width: 1),
             ),
-            child: const Column(
+            child: Column(
               children: [
                 Icon(
                   Icons.chat_bubble_outline_rounded,
                   size: 22,
-                  color: Color(0xFF6B7280),
+                  color: c.textSecondary,
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   'Belum ada komentar',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF6B7280),
+                    color: c.textSecondary,
                   ),
                 ),
               ],
@@ -1162,15 +1202,16 @@ class _BubbleBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     // Responsive bubble — fills the available column width
     // (~350.5 on iPhone 12 Pro, ~730 on iPad) minus avatar
     // (32) + 11.25 gap. Height auto-sizes to content so longer
     // messages don't overflow on either resolution.
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.surfaceCard,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        border: Border.all(color: c.border, width: 1),
       ),
       padding: const EdgeInsets.all(12.25),
       child: Column(
@@ -1195,10 +1236,10 @@ class _BubbleBody extends StatelessWidget {
                   top: 0,
                   child: Text(
                     comment.author.isEmpty ? '—' : comment.author,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F1115),
+                      color: c.textPrimary,
                       height: 19.5 / 13,
                     ),
                   ),
@@ -1208,10 +1249,10 @@ class _BubbleBody extends StatelessWidget {
                   top: 2,
                   child: Text(
                     _dateLine(comment.createdAt),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 16.5 / 11,
                     ),
                   ),
@@ -1223,10 +1264,10 @@ class _BubbleBody extends StatelessWidget {
           // Role label
           Text(
             getRoleLabel(comment.role),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF6B7280),
+              color: c.textSecondary,
               height: 16.5 / 11,
             ),
           ),
@@ -1235,10 +1276,10 @@ class _BubbleBody extends StatelessWidget {
           // bubble (no maxLines / fixed height).
           Text(
             comment.message,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF0F1115),
+              color: c.textPrimary,
               height: 21 / 14,
             ),
           ),
@@ -1270,6 +1311,8 @@ class _Avatar extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         _initials(name),
+        // White text on the colored avatar — stays white in
+        // both modes.
         style: const TextStyle(
           fontSize: 12.16,
           fontWeight: FontWeight.w600,
@@ -1329,16 +1372,17 @@ class _ReplyBarState extends State<_ReplyBar> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final canSend =
         !widget.sending && widget.controller.text.trim().isNotEmpty;
     return Material(
-      color: const Color(0xCCF5F7FA),
+      color: c.surfaceFrosted, // 80% surface alpha — matches header
       child: SafeArea(
         top: false,
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(color: AppColors.authBorder, width: 1),
+              top: BorderSide(color: c.border, width: 1),
             ),
           ),
           padding: const EdgeInsets.fromLTRB(18.75, 12.25, 18.75, 11.25),
@@ -1348,8 +1392,13 @@ class _ReplyBarState extends State<_ReplyBar> {
                 child: Container(
                   height: 37.5,
                   decoration: BoxDecoration(
+                    // Option A: subtle inset on the frosted bar
+                    // — tintNeutral bg + 1px border. Matches the
+                    // admin user-list search + ticket-list search
+                    // + create-ticket fields + auth fields.
+                    color: c.tintNeutral,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.authBorder, width: 1),
+                    border: Border.all(color: c.border, width: 1),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 12.25),
                   alignment: Alignment.centerLeft,
@@ -1358,19 +1407,21 @@ class _ReplyBarState extends State<_ReplyBar> {
                     focusNode: widget.focusNode,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => canSend ? widget.onSend() : null,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF0F1115),
+                      color: c.textPrimary,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isCollapsed: true,
                       border: InputBorder.none,
                       hintText: 'Write a reply…',
                       hintStyle: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
-                        color: Color(0x800F1115),
+                        // 50% alpha of the primary text — the
+                        // hint dims correctly in both modes.
+                        color: c.textPrimary.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -1403,6 +1454,7 @@ class _SendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
+      // Brand blue — stays #2563EB in both modes.
       color: enabled
           ? const Color(0xFF2563EB)
           : const Color(0xFF2563EB).withValues(alpha: 0.5),
@@ -1434,6 +1486,7 @@ class _SendButton extends StatelessWidget {
               const SizedBox(width: 5.625),
               const Text(
                 'Send',
+                // White on blue — stays white in both modes.
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -1471,20 +1524,21 @@ class _ManageSheet extends StatelessWidget {
     final isAdmin = role == UserRole.admin;
     final showAssign = isAdmin;
     final showDelete = isAdmin;
+    final c = context.semantic;
 
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.surfaceCard,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.authBorder),
+          border: Border.all(color: c.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -1492,7 +1546,7 @@ class _ManageSheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F1115),
+                    color: c.textPrimary,
                   ),
                 ),
               ),
@@ -1500,9 +1554,9 @@ class _ManageSheet extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.swap_horiz_rounded),
               title: const Text('Update status'),
-              subtitle: const Text(
+              subtitle: Text(
                 'Open, In Progress, Assigned, Closed',
-                style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 11, color: c.textSecondary),
               ),
               onTap: onStatus,
             ),
@@ -1510,9 +1564,9 @@ class _ManageSheet extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.person_add_alt_1_rounded),
                 title: const Text('Assign to'),
-                subtitle: const Text(
+                subtitle: Text(
                   'Reassign to a helpdesk user',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  style: TextStyle(fontSize: 11, color: c.textSecondary),
                 ),
                 onTap: onAssign,
               ),
@@ -1526,9 +1580,9 @@ class _ManageSheet extends StatelessWidget {
                   'Delete ticket',
                   style: TextStyle(color: AppColors.authError),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'Permanently remove this ticket',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  style: TextStyle(fontSize: 11, color: c.textSecondary),
                 ),
                 onTap: onDelete,
               ),
@@ -1546,6 +1600,7 @@ class _StatusSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final entries = <(TicketStatus, String, Color, Color)>[
       (TicketStatus.open, 'Open', AppColors.statusOpen, AppColors.statusOpenBg),
       (TicketStatus.assigned, 'Assigned', AppColors.statusAssigned, AppColors.statusAssignedBg),
@@ -1556,15 +1611,15 @@ class _StatusSheet extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.surfaceCard,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.authBorder),
+          border: Border.all(color: c.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -1572,7 +1627,7 @@ class _StatusSheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F1115),
+                    color: c.textPrimary,
                   ),
                 ),
               ),
@@ -1595,7 +1650,7 @@ class _StatusSheet extends StatelessWidget {
                         e.$1 == current ? FontWeight.w600 : FontWeight.w400,
                     color: e.$1 == current
                         ? e.$3
-                        : const Color(0xFF0F1115),
+                        : c.textPrimary,
                   ),
                 ),
                 trailing: e.$1 == current
@@ -1618,19 +1673,20 @@ class _AssignSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.surfaceCard,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.authBorder),
+          border: Border.all(color: c.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -1638,17 +1694,17 @@ class _AssignSheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F1115),
+                    color: c.textPrimary,
                   ),
                 ),
               ),
             ),
             if (users.isEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Text(
                   'No helpdesk users found.',
-                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                  style: TextStyle(color: c.textSecondary, fontSize: 13),
                 ),
               )
             else
@@ -1700,16 +1756,19 @@ class _HistorySheet extends StatelessWidget {
     'commented': Icons.chat_bubble_outline_rounded,
   };
 
+  // Brand-color palette for history events — kept fixed across modes
+  // so the icon + tinted bg stay meaningful in both surfaces.
   static const Map<String, Color> _colors = {
-    'created': Color(0xFF2563EB),
-    'assigned': Color(0xFF8B5CF6),
-    'status_changed': Color(0xFFF59E0B),
-    'closed': Color(0xFF43A047),
-    'commented': Color(0xFF6B7280),
+    'created': Color(0xFF2563EB), // blue
+    'assigned': Color(0xFF8B5CF6), // purple
+    'status_changed': Color(0xFFF59E0B), // amber
+    'closed': Color(0xFF43A047), // green
+    'commented': Color(0xFF6B7280), // muted gray (uses textSecondary tone)
   };
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.4,
@@ -1719,9 +1778,9 @@ class _HistorySheet extends StatelessWidget {
         return SafeArea(
           top: false,
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: c.surfaceCard,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Column(
               children: [
@@ -1730,7 +1789,7 @@ class _HistorySheet extends StatelessWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.authBorder,
+                    color: c.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1741,37 +1800,37 @@ class _HistorySheet extends StatelessWidget {
                       const Icon(
                         Icons.route_rounded,
                         size: 18,
-                        color: Color(0xFFF59E0B),
+                        color: Color(0xFFF59E0B), // brand amber
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Tracking',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F1115),
+                          color: c.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         '· $ticketCode',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF6B7280),
+                          color: c.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: AppColors.authBorder),
+                Divider(height: 1, color: c.border),
                 Expanded(
                   child: events.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text(
                             'No events yet',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Color(0xFF6B7280),
+                              color: c.textSecondary,
                             ),
                           ),
                         )
@@ -1785,7 +1844,7 @@ class _HistorySheet extends StatelessWidget {
                           itemBuilder: (_, i) {
                             final e = events[events.length - 1 - i];
                             final color = _colors[e.action] ??
-                                const Color(0xFF6B7280);
+                                c.textSecondary;
                             final icon = _icons[e.action] ??
                                 Icons.history_rounded;
                             return _HistoryRow(
@@ -1846,6 +1905,7 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final fmt = DateFormat('d MMM y · HH:mm', 'id_ID');
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1854,6 +1914,8 @@ class _HistoryRow extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
+            // Brand color at 12% alpha — low alpha tinted bg
+            // reads OK on both card surfaces.
             color: color.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
@@ -1867,30 +1929,30 @@ class _HistoryRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0F1115),
+                  color: c.textPrimary,
                   height: 19.5 / 14,
                 ),
               ),
               if (subtitle != null)
                 Text(
                   subtitle!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF6B7280),
+                    color: c.textSecondary,
                     height: 16.5 / 12,
                   ),
                 ),
               const SizedBox(height: 2),
               Text(
                 fmt.format(at),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFF94A3B8),
+                  color: c.textHint,
                 ),
               ),
             ],
@@ -1908,31 +1970,34 @@ class _HistoryRow extends StatelessWidget {
 class _LoadingScaffold extends StatelessWidget {
   const _LoadingScaffold();
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.authBg,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              const Center(child: CircularProgressIndicator()),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 81,
-                  decoration: BoxDecoration(
-                    color: const Color(0xCCF5F7FA),
-                    border: Border(
-                      bottom: BorderSide(
-                          color: AppColors.authBorder, width: 1),
-                    ),
+  Widget build(BuildContext context) {
+    final c = context.semantic;
+    return Scaffold(
+      backgroundColor: c.surface,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            const Center(child: CircularProgressIndicator()),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 81,
+                decoration: BoxDecoration(
+                  color: c.surfaceFrosted,
+                  border: Border(
+                    bottom: BorderSide(
+                        color: c.border, width: 1),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _ErrorScaffold extends StatelessWidget {
@@ -1940,40 +2005,43 @@ class _ErrorScaffold extends StatelessWidget {
   final VoidCallback? onRetry;
   const _ErrorScaffold({required this.message, required this.onRetry});
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.authBg,
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    size: 56,
-                    color: Color(0xFF6B7280),
+  Widget build(BuildContext context) {
+    final c = context.semantic;
+    return Scaffold(
+      backgroundColor: c.surface,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 56,
+                  color: c.textSecondary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: c.textSecondary,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF6B7280),
-                    ),
+                ),
+                if (onRetry != null) ...[
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: onRetry,
+                    child: const Text('Coba lagi'),
                   ),
-                  if (onRetry != null) ...[
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: onRetry,
-                      child: const Text('Coba lagi'),
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 }

@@ -4,19 +4,16 @@
 //   - dashboard_screen.dart recent activity
 //   - ticket_list_screen.dart main list
 //
-// Pure widget: takes a `TicketEntity` + `onTap`. No providers.
-// Lays out per Figma spec:
-//   - 15 px radius, 1 px #e5e7eb border, 6 % drop-shadow (0,1,blur 1)
-//   - 16 px padding, columns: status-dot row → title (7.5 pt) →
-//     description (3.75 pt) → footer row (11.25 pt)
-//   - Status dot colour follows TicketStatus
-//   - Right-aligned status pill in row 1, comment icon+count in
-//     footer
+// 2026-06-24: Phase 2 of the theme refactor (ignore/todo-theme.md).
+// Card surface, border, text colors now read `context.semantic` so
+// the card flips with `Theme.of(context).brightness`. Brand colors
+// (status dot + status pill) stay fixed per the design system.
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../domain/entities/ticket_entity.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 
 class TicketListCard extends StatelessWidget {
@@ -51,6 +48,7 @@ class TicketListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final statusColor = _statusDotColor();
     final dateLabel = DateFormat('d MMM').format(ticket.createdAt);
     final commentsCount = ticket.comments.length;
@@ -61,14 +59,14 @@ class TicketListCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.authBorder),
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
           borderRadius: BorderRadius.circular(15),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x0F0F1115),
+              color: c.shadow,
               blurRadius: 1,
-              offset: Offset(0, 1),
+              offset: const Offset(0, 1),
             ),
           ],
         ),
@@ -90,10 +88,10 @@ class TicketListCard extends StatelessWidget {
                 const SizedBox(width: 7.5),
                 Text(
                   _ticketCode(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.authHint,
+                    color: c.textSecondary,
                     letterSpacing: 0.44,
                     height: 1.5,
                   ),
@@ -111,10 +109,10 @@ class TicketListCard extends StatelessWidget {
               ticket.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: AppColors.authFieldText,
+                color: c.textPrimary,
                 height: 1.4,
               ),
             ),
@@ -124,10 +122,10 @@ class TicketListCard extends StatelessWidget {
               ticket.description,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
-                color: AppColors.authHint,
+                color: c.textSecondary,
                 height: 1.5,
               ),
             ),
@@ -148,18 +146,18 @@ class TicketListCard extends StatelessWidget {
                 Container(
                   width: 3.75,
                   height: 3.75,
-                  decoration: const BoxDecoration(
-                    color: AppColors.authBorder,
+                  decoration: BoxDecoration(
+                    color: c.border,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 15),
                 Text(
                   dateLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
-                    color: AppColors.authHint,
+                    color: c.textSecondary,
                     height: 1.5,
                   ),
                 ),
@@ -167,18 +165,18 @@ class TicketListCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.forum_outlined,
                       size: 12,
-                      color: AppColors.authHint,
+                      color: c.textSecondary,
                     ),
                     const SizedBox(width: 5.625),
                     Text(
                       '$commentsCount',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: AppColors.authHint,
+                        color: c.textSecondary,
                         height: 1.5,
                       ),
                     ),
@@ -200,6 +198,9 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Status pill is color-coded by status and stays fixed
+    // across light + dark modes (low-alpha overlay reads OK on
+    // both surfaces).
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 9.375,

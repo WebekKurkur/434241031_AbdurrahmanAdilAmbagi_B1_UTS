@@ -10,6 +10,16 @@
 // Backed by:
 //   - `ticketByIdProvider(ticketId)`        — single ticket row
 //   - `ticketHistoryStreamProvider(id)`     — realtime history stream
+//
+// 2026-06-24: Phase 12 of the theme refactor (ignore/todo-theme.md).
+// AppHeader, summary card, progress bar, timeline rows, loading +
+// error states all read `context.semantic` so they flip with
+// `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - blue #2563EB (progress bar fill, "commented" timeline dot)
+//   - purple #8B5CF6 ("assigned" timeline dot)
+//   - amber #F59E0B ("status_changed" timeline dot)
+//   - green #10B981 ("closed" timeline dot + closed status pill)
+//   - status pill fg+bg pairs (color-coded by status)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +27,7 @@ import 'package:intl/intl.dart';
 
 import '../../domain/entities/ticket_entity.dart';
 import '../providers/ticket_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 
 class TrackingScreen extends ConsumerWidget {
@@ -29,7 +40,7 @@ class TrackingScreen extends ConsumerWidget {
     final historyAsync = ref.watch(ticketHistoryStreamProvider(ticketId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: context.semantic.surface,
       body: ticketAsync.when(
         loading: () => const _TrackingLoading(),
         error: (e, _) => _TrackingError(
@@ -105,12 +116,13 @@ class _AppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 52.5,
-      decoration: const BoxDecoration(
-        color: Color(0xCCF5F7FA), // 80% #f5f7fa
+      decoration: BoxDecoration(
+        color: c.surfaceFrosted, // 80% surface alpha
         border: Border(
-          bottom: BorderSide(color: AppColors.authBorder, width: 1),
+          bottom: BorderSide(color: c.border, width: 1),
         ),
       ),
       child: Padding(
@@ -131,13 +143,13 @@ class _AppHeader extends StatelessWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
                       onTap: () => Navigator.maybePop(context),
-                      child: const SizedBox(
+                      child: SizedBox(
                         width: 33.75,
                         height: 33.75,
                         child: Icon(
                           Icons.arrow_back_rounded,
                           size: 20,
-                          color: Color(0xFF0F1115),
+                          color: c.textPrimary,
                         ),
                       ),
                     ),
@@ -152,22 +164,22 @@ class _AppHeader extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Tracking',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F1115),
+                      color: c.textPrimary,
                       letterSpacing: -0.17,
                       height: 22.1 / 17,
                     ),
                   ),
                   Text(
                     ticketCode.isEmpty ? '—' : ticketCode,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 15.6 / 12,
                     ),
                   ),
@@ -182,7 +194,7 @@ class _AppHeader extends StatelessWidget {
 }
 
 // ===========================================================================
-// SummaryCard (8071:894) — white card with title + opened + status pill +
+// SummaryCard (8071:894) — card with title + opened + status pill +
 // 4-stage progress bar + 4 stage labels
 // ===========================================================================
 
@@ -193,6 +205,7 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     // Stage reached = the index of the current ticket status in the
     // 4-stage lifecycle (Created=0, Assigned=1, In Progress=2,
     // Closed=3). Anything past `inProgress` is "reached" so the
@@ -201,9 +214,9 @@ class _SummaryCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.surfaceCard,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        border: Border.all(color: c.border, width: 1),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -219,10 +232,10 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       ticket.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F1115),
+                        color: c.textPrimary,
                         letterSpacing: -0.16,
                         height: 20.8 / 16,
                       ),
@@ -232,10 +245,10 @@ class _SummaryCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Opened ${DateFormat('d MMMM y, HH:mm', 'id_ID').format(ticket.createdAt)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF6B7280),
+                        color: c.textSecondary,
                         height: 18 / 12,
                       ),
                     ),
@@ -254,7 +267,10 @@ class _SummaryCard extends StatelessWidget {
               return Container(
                 height: 5.625,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F4F8),
+                  // Track bg = tintNeutral (light tint in light
+                  // mode, dark grey in dark mode). Fill stays
+                  // brand blue on both surfaces.
+                  color: context.semantic.tintNeutral,
                   borderRadius: BorderRadius.circular(33554400),
                 ),
                 child: Align(
@@ -263,7 +279,7 @@ class _SummaryCard extends StatelessWidget {
                     widthFactor: reached / 4,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB),
+                        color: const Color(0xFF2563EB), // brand blue
                         borderRadius: BorderRadius.circular(33554400),
                       ),
                     ),
@@ -274,7 +290,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 7.5),
           // 4 stage labels (Created / Assigned / In Progress / Closed)
-          const Row(
+          Row(
             children: [
               Expanded(child: _StageLabel(text: 'Created')),
               Expanded(child: _StageLabel(text: 'Assigned', align: TextAlign.center)),
@@ -314,6 +330,9 @@ class _StatusPill extends StatelessWidget {
   final TicketStatus status;
   const _StatusPill({required this.status});
 
+  // Status pill fg+bg pairs — brand-color coded, kept fixed
+  // across light/dark (low-alpha tints read OK on both card
+  // surfaces).
   static const Map<TicketStatus, Color> _fg = {
     TicketStatus.open: Color(0xFF10B981),
     TicketStatus.assigned: Color(0xFF2563EB),
@@ -380,10 +399,10 @@ class _StageLabel extends StatelessWidget {
     return Text(
       text,
       textAlign: align,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF6B7280),
+        color: context.semantic.textSecondary,
         height: 16.5 / 11,
       ),
     );
@@ -404,10 +423,10 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(top: 11.25, bottom: 0),
       child: Text(
         text.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF6B7280),
+          color: context.semantic.textSecondary,
           letterSpacing: 0.66,
           height: 16.5 / 11,
         ),
@@ -427,6 +446,8 @@ class _Timeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
+
     if (loading && history.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
@@ -441,15 +462,15 @@ class _Timeline extends StatelessWidget {
     }
 
     if (history.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
         child: Center(
           child: Text(
             'Belum ada aktivitas',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF6B7280),
+              color: c.textSecondary,
             ),
           ),
         ),
@@ -484,6 +505,10 @@ class _TimelineRow extends StatelessWidget {
   final bool showConnector;
   const _TimelineRow({required this.event, required this.showConnector});
 
+  // Timeline dot border + fill — brand-color coded, kept fixed
+  // across light/dark. Each color is dark enough to read as a
+  // visible border ring on the light surface bg, and the
+  // saturated fill stays distinct in both modes.
   static const Map<String, Color> _dotBorderColors = {
     'created': Color(0xFF6B7280),
     'assigned': Color(0xFF8B5CF6),
@@ -502,6 +527,7 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final border = _dotBorderColors[event.action] ?? const Color(0xFF6B7280);
     final fill = _dotFillColors[event.action] ?? const Color(0xFF6B7280);
     final title = _titleFor(event);
@@ -521,10 +547,12 @@ class _TimelineRow extends StatelessWidget {
               bottom: 0,
               child: Container(
                 width: 1,
-                color: const Color(0xFFE5E7EB),
+                color: c.border,
               ),
             ),
           // Dot (8071:927) — 22.5px circle, 2px border, 7.5px fill.
+          // Dot bg matches the scaffold surface so the ring +
+          // fill read as a "ringed dot" on either mode.
           Positioned(
             left: 0,
             top: 3.75,
@@ -532,7 +560,7 @@ class _TimelineRow extends StatelessWidget {
               width: 22.5,
               height: 22.5,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F7FA),
+                color: c.surface,
                 border: Border.all(color: border, width: 2),
                 shape: BoxShape.circle,
               ),
@@ -564,10 +592,10 @@ class _TimelineRow extends StatelessWidget {
                         top: 0,
                         child: Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF0F1115),
+                            color: c.textPrimary,
                             height: 21 / 14,
                           ),
                         ),
@@ -577,10 +605,10 @@ class _TimelineRow extends StatelessWidget {
                         top: 4,
                         child: Text(
                           date,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xFF6B7280),
+                            color: c.textSecondary,
                             height: 16.5 / 11,
                           ),
                         ),
@@ -593,10 +621,10 @@ class _TimelineRow extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     actor,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 18 / 12,
                     ),
                   ),
@@ -661,33 +689,34 @@ class _TrackingError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
               size: 48,
-              color: Color(0xFF94A3B8),
+              color: c.textHint,
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Gagal memuat data tracking',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F1115),
+                color: c.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '$error',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF6B7280),
+                color: c.textSecondary,
               ),
             ),
             const SizedBox(height: 12),

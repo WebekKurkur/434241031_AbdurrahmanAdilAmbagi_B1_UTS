@@ -2,27 +2,16 @@
 //
 // Redesign (2026-06-22) per Figma node 8071:3.
 //
-// UI: solid `#f5f7fa` background (no more blue gradient hero),
-// pure-white KPI cards on `#e5e7eb` borders, 15 px corner
-// radius, 6 % drop shadow. Pill-shaped bottom nav with 4 tabs.
-// Floating action button anchored to bottom-right of dashboard
-// (was on HomeScreen before — moved here to match Figma).
-//
-// Behaviour preserved from the old dashboard:
-//   - `currentUserProvider` for auth-aware UI
-//   - `userTicketsProvider` for role-scoped ticket list
-//   - `ticketStatsProvider` for KPI counts
-//   - `ticketInvalidatorProvider` for realtime refresh
-//   - `_DbStatusBanner` debug widget (still wrapped in kDebugMode)
-//   - Pull-to-refresh + animations
-//
-// Role-scoped counting (per user instruction 2026-06-22):
-//   - user     → only tickets they created
-//   - helpdesk → only tickets assigned to them
-//   - admin    → all tickets
-// This already lives in `userTicketsProvider` — the counts are
-// derived from the same filtered list, so the KPIs are
-// automatically role-correct.
+// 2026-06-24: Phase 5 of the theme refactor (ignore/todo-theme.md).
+// Scaffold, header, headings, recent-activity, FAB, _IconChip,
+// debug banner all now read `context.semantic` so they flip with
+// `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - purple #8B5CF6 avatar
+//   - blue #2563EB FAB + "View all" link
+//   - tinted icon containers stay color-coded by KPI
+// Behaviour preserved (currentUserProvider, userTicketsProvider,
+// ticketStatsProvider, ticketInvalidatorProvider, _DbStatusBanner,
+// pull-to-refresh, animations).
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +22,7 @@ import '../../domain/entities/ticket_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ticket_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/shimmer_card.dart';
@@ -69,10 +59,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final user = ref.watch(currentUserProvider);
 
     if (user == null) {
       return Scaffold(
+        backgroundColor: c.surface,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -80,8 +72,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const Icon(Icons.login_rounded,
                   size: 64, color: AppColors.primary),
               const SizedBox(height: 16),
-              const Text('Please login to continue',
-                  style: TextStyle(fontSize: 16)),
+              Text(
+                'Please login to continue',
+                style: TextStyle(fontSize: 16, color: c.textPrimary),
+              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () =>
@@ -95,7 +89,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: c.surface,
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(allTicketsProvider);
@@ -145,6 +139,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ─────────────────────────── Header ───────────────────────────
 
   Widget _buildHeader(UserEntity user) {
+    final c = context.semantic;
     final greeting = _greeting();
     final firstName = user.name.split(' ').first;
     final initials = _initials(user.name);
@@ -153,7 +148,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       padding: const EdgeInsets.fromLTRB(18.75, 18.75, 18.75, 0),
       child: Row(
         children: [
-          // Avatar (40 px circle, solid `#8b5cf6`).
+          // Avatar (40 px circle, solid `#8b5cf6`) — brand color
+          // stays fixed in both modes.
           Container(
             width: 40,
             height: 40,
@@ -181,40 +177,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               Text(
                 '$greeting,',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  color: AppColors.authHint,
+                  color: c.textSecondary,
                   height: 1.5,
                 ),
               ),
               Text(
                 firstName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.authFieldText,
+                  color: c.textPrimary,
                   height: 1.5,
                 ),
               ),
             ],
           ),
           const Spacer(),
-          // Right cluster: search + theme toggle
-          Row(
-            children: [
-              _IconChip(
-                icon: Icons.search_rounded,
-                onTap: () => widget.onSwitchToTab?.call(1),
-              ),
-              const SizedBox(width: 7.5),
-              _IconChip(
-                icon: Theme.of(context).brightness == Brightness.dark
-                    ? Icons.light_mode_outlined
-                    : Icons.dark_mode_outlined,
-                onTap: () => _toggleTheme(context),
-              ),
-            ],
+          // Right cluster: search only (theme toggle lives on
+          // profile + settings per the latest IA)
+          _IconChip(
+            icon: Icons.search_rounded,
+            onTap: () => widget.onSwitchToTab?.call(1),
           ),
         ],
       ),
@@ -224,28 +210,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ─────────────────────────── Heading ──────────────────────────
 
   Widget _buildHeading() {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18.75, 18.75, 18.75, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Text(
             'Operations overview',
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w700,
-              color: AppColors.authFieldText,
+              color: c.textPrimary,
               letterSpacing: -0.52,
               height: 1.25,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             "Live snapshot of your team's ticket queue.",
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: AppColors.authHint,
+              color: c.textSecondary,
               height: 1.5,
             ),
           ),
@@ -377,16 +364,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ─────────────────────────── Recent activity ──────────────────
 
   Widget _buildSectionHeader() {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18.75, 22.5, 18.75, 0),
       child: Row(
         children: [
-          const Text(
+          Text(
             'Recent activity',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppColors.authFieldText,
+              color: c.textPrimary,
               height: 1.35,
             ),
           ),
@@ -481,24 +469,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
   }
-
-  void _toggleTheme(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final newBrightness =
-        brightness == Brightness.dark ? Brightness.light : Brightness.dark;
-    // The root MaterialApp watches this via themeProvider.
-    // Triggering via SystemChrome would not persist; the
-    // home_screen / splash reads from themeProvider so we
-    // dispatch a manual change via the global key.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(newBrightness == Brightness.dark
-            ? 'Dark mode'
-            : 'Light mode'),
-        duration: const Duration(milliseconds: 800),
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -512,6 +482,7 @@ class _IconChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -519,11 +490,11 @@ class _IconChip extends StatelessWidget {
         width: 33.75,
         height: 33.75,
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.authBorder),
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Icon(icon, size: 16, color: AppColors.authHint),
+        child: Icon(icon, size: 16, color: c.textHint),
       ),
     );
   }
@@ -532,8 +503,6 @@ class _IconChip extends StatelessWidget {
 // KPI cards (KpiCardHero, KpiCardSmall) and `_kpiDecoration`
 // live in `lib/presentation/widgets/kpi_card.dart` so the
 // profile screen can render the same KPI layout.
-
-
 
 class _Fab extends StatelessWidget {
   final VoidCallback onTap;
@@ -570,29 +539,30 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.all(40),
       child: Column(
         children: [
           Icon(Icons.inbox_rounded,
-              size: 64, color: AppColors.authHint.withValues(alpha: 0.4)),
+              size: 64, color: c.textHint.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Belum ada tiket',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.authHint,
+              color: c.textSecondary,
             ),
           ),
           if (isUser) ...[
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Tekan tombol + untuk membuat tiket baru',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.authHint,
+                color: c.textSecondary,
               ),
             ),
           ],
@@ -613,14 +583,15 @@ class _DbStatusBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
     final status = ref.watch(ticketDbStatusProvider);
     return Container(
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSubtle,
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: c.border),
       ),
       child: status.when(
         loading: () => const Row(
@@ -653,12 +624,12 @@ class _DbStatusBanner extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Status DB',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
+                  color: c.textSecondary,
                   letterSpacing: 1,
                 ),
               ),
@@ -667,9 +638,9 @@ class _DbStatusBanner extends ConsumerWidget {
                 '• Role aktif: $roleName\n'
                 '• Baris tiket di DB (raw, lewat RLS): ${s.totalRows}\n'
                 '• Baris setelah filter role: ${s.matchCount ?? 0}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.surfaceSubtleDark,
+                  color: c.textPrimary,
                   height: 1.5,
                 ),
               ),

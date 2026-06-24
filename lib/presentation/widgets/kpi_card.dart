@@ -10,31 +10,31 @@
 //   * `KpiCardSmall` — vertical card (icon + big number + label,
 //                      used in 2-up rows)
 //
-// Both share the same decoration tokens via `_kpiDecoration`:
-//   - white surface, 1 px #e5e7eb border, 15 px radius
-//   - 0x0F0F1115 shadow, blur 1, offset (0, 1)
-//   - tinted icon container (12% of `tint` for the bg, full
-//     `tint` for the icon)
-//
-// 2026-06-22: extracted from dashboard_screen.dart for reuse on
-// the redesigned profile screen.
+// 2026-06-24: Phase 2 of the theme refactor (ignore/todo-theme.md).
+// The shared decoration now reads `context.semantic` so cards flip
+// with `Theme.of(context).brightness`. Tinted icon containers stay
+// as-is (low-alpha overlays of brand colors read OK on both
+// surfaces).
 
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_semantic.dart';
 
-BoxDecoration _kpiDecoration() => BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: AppColors.authBorder),
-      borderRadius: BorderRadius.circular(15),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x0F0F1115),
-          blurRadius: 1,
-          offset: Offset(0, 1),
-        ),
-      ],
-    );
+BoxDecoration _kpiDecoration(BuildContext context) {
+  final c = context.semantic;
+  return BoxDecoration(
+    color: c.surfaceCard,
+    border: Border.all(color: c.border),
+    borderRadius: BorderRadius.circular(15),
+    boxShadow: [
+      BoxShadow(
+        color: c.shadow,
+        blurRadius: 1,
+        offset: const Offset(0, 1),
+      ),
+    ],
+  );
+}
 
 class KpiCardHero extends StatelessWidget {
   final String label;
@@ -52,9 +52,10 @@ class KpiCardHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: _kpiDecoration(),
+      decoration: _kpiDecoration(context),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -75,19 +76,19 @@ class KpiCardHero extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.authHint,
+                    color: c.textSecondary,
                     height: 1.5,
                   ),
                 ),
                 Text(
                   '$value',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.authFieldText,
+                    color: c.textPrimary,
                     letterSpacing: -0.9,
                     height: 1.1,
                   ),
@@ -117,9 +118,10 @@ class KpiCardSmall extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: _kpiDecoration(),
+      decoration: _kpiDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -136,10 +138,10 @@ class KpiCardSmall extends StatelessWidget {
           const SizedBox(height: 11.25),
           Text(
             '$value',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
-              color: AppColors.authFieldText,
+              color: c.textPrimary,
               letterSpacing: -0.48,
               height: 1.5,
             ),
@@ -147,10 +149,10 @@ class KpiCardSmall extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w400,
-              color: AppColors.authHint,
+              color: c.textSecondary,
               height: 1.5,
             ),
           ),

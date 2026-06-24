@@ -7,8 +7,9 @@
 //     toggle
 //   - 3 summary chips (Total / Active / Helpdesk), flex-1 each
 //   - Search bar + blue 37.5px "+" add-user button
-//   - 4 filter pills (All / Admin / Helpdesk / User) — "All" is
-//     filled black, the rest are bordered grey
+//   - 4 filter pills (All / Admin / Helpdesk / User) — selected
+//     pill inverts via `c.textPrimary` bg (auto-flips black-on-
+//     light → near-white-on-dark) and `c.surface` text
 //   - Vertical list of user cards: 40px purple avatar + name +
 //     email + role pill (with icon) + dot + department + 30px
 //     chevron button. Tapping the card or the chevron opens the
@@ -16,14 +17,25 @@
 //
 // Data: `adminUsersProvider` (FutureProvider.autoDispose) from
 // `presentation/providers/auth_provider.dart`.
+//
+// 2026-06-24: Phase 13 of the theme refactor (ignore/todo-theme.md).
+// AppHeader, summary chips, search field, filter pills, user
+// card, role pill, loading + error + empty states all read
+// `context.semantic` so they flip with `Theme.of(context).brightness`.
+// Brand colors stay fixed:
+//   - blue #2563EB (add-user button, "Helpdesk" summary text)
+//   - green #10B981 ("Active" summary text + tinted bg)
+//   - blue #3B82F6 (role pill text + icon, helpdesk + user roles)
+//   - purple #8B5CF6 (user avatar, admin role color)
+//   - low-alpha brand tints for summary/role-pill bgs
+//   - white on avatar text + "+" icon (sits on colored bg)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/user_entity.dart';
 import '../providers/auth_provider.dart';
-import '../providers/theme_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_semantic.dart';
 import 'admin_user_detail_screen.dart';
 
 class AdminUserListScreen extends ConsumerWidget {
@@ -32,10 +44,9 @@ class AdminUserListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(adminUsersProvider);
-    final isDark = ref.watch(themeProvider) == ThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: context.semantic.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -48,7 +59,7 @@ class AdminUserListScreen extends ConsumerWidget {
                   error: e,
                   onRetry: () => ref.invalidate(adminUsersProvider),
                 ),
-                data: (users) => _UserListBody(users: users, isDark: isDark),
+                data: (users) => _UserListBody(users: users),
               ),
             ),
           ],
@@ -67,13 +78,13 @@ class _AppHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeProvider) == ThemeMode.dark;
+    final c = context.semantic;
     return Container(
       height: 52.5,
-      decoration: const BoxDecoration(
-        color: Color(0xCCF5F7FA), // 80% #f5f7fa
+      decoration: BoxDecoration(
+        color: c.surfaceFrosted, // 80% surface alpha
         border: Border(
-          bottom: BorderSide(color: AppColors.authBorder, width: 1),
+          bottom: BorderSide(color: c.border, width: 1),
         ),
       ),
       child: Padding(
@@ -93,13 +104,13 @@ class _AppHeader extends ConsumerWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
                       onTap: () => Navigator.maybePop(context),
-                      child: const SizedBox(
+                      child: SizedBox(
                         width: 33.75,
                         height: 33.75,
                         child: Icon(
                           Icons.arrow_back_rounded,
                           size: 20,
-                          color: Color(0xFF0F1115),
+                          color: c.textPrimary,
                         ),
                       ),
                     ),
@@ -108,13 +119,13 @@ class _AppHeader extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 11.25),
-            const Expanded(
+            Expanded(
               child: Text(
                 'User Management',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0F1115),
+                  color: c.textPrimary,
                   letterSpacing: -0.17,
                   height: 22.1 / 17,
                 ),
@@ -122,30 +133,8 @@ class _AppHeader extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // Theme toggle (8098:1191) — 33.75×33.75 bordered
-            InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => ref.read(themeProvider.notifier).cycle(),
-              child: Container(
-                width: 33.75,
-                height: 33.75,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.authBorder,
-                    width: 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  isDark
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded,
-                  size: 16,
-                  color: const Color(0xFF0F1115),
-                ),
-              ),
-            ),
+            // (Theme toggle removed — lives on profile + settings
+            // per the latest IA)
           ],
         ),
       ),
@@ -159,8 +148,7 @@ class _AppHeader extends ConsumerWidget {
 
 class _UserListBody extends StatefulWidget {
   final List<UserEntity> users;
-  final bool isDark;
-  const _UserListBody({required this.users, required this.isDark});
+  const _UserListBody({required this.users});
 
   @override
   State<_UserListBody> createState() => _UserListBodyState();
@@ -209,9 +197,10 @@ class _UserListBodyState extends State<_UserListBody> {
                 child: _SummaryChip(
                   value: total,
                   label: 'Total',
-                  background: Colors.white,
-                  border: AppColors.authBorder,
-                  textColor: const Color(0xFF0F1115),
+                  // "Total" chip — neutral surface in both modes.
+                  background: context.semantic.surfaceCard,
+                  border: context.semantic.border,
+                  textColor: context.semantic.textPrimary,
                 ),
               ),
               const SizedBox(width: 11.25),
@@ -219,8 +208,10 @@ class _UserListBodyState extends State<_UserListBody> {
                 child: _SummaryChip(
                   value: active,
                   label: 'Active',
-                  background: const Color(0x1410B981), // rgba(16,185,129,0.14)
-                  border: AppColors.authBorder,
+                  // Brand green low-alpha tint (reads OK on both
+                  // card surfaces).
+                  background: const Color(0x1410B981),
+                  border: context.semantic.border,
                   textColor: const Color(0xFF10B981),
                 ),
               ),
@@ -229,8 +220,10 @@ class _UserListBodyState extends State<_UserListBody> {
                 child: _SummaryChip(
                   value: helpdesk,
                   label: 'Helpdesk',
-                  background: const Color(0x143B82F6), // rgba(59,130,246,0.12)
-                  border: AppColors.authBorder,
+                  // Brand blue low-alpha tint (reads OK on both
+                  // card surfaces).
+                  background: const Color(0x143B82F6),
+                  border: context.semantic.border,
                   textColor: const Color(0xFF3B82F6),
                 ),
               ),
@@ -392,7 +385,7 @@ class _SummaryChip extends StatelessWidget {
 }
 
 // ===========================================================================
-// SearchField (8098:1206) — white, 18px radius, search icon + text
+// SearchField (8098:1206) — surfaceCard, 18px radius, search icon + text
 // ===========================================================================
 
 class _SearchField extends StatelessWidget {
@@ -402,39 +395,46 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 37.5,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        // Subtle inset: tintNeutral sits 1-2% lighter than the
+        // page surface (light) / 6% lighter (dark), so the
+        // search field reads as a field without the high-
+        // contrast white-on-lightgrey look.
+        color: c.tintNeutral,
+        border: Border.all(color: c.border, width: 1),
         borderRadius: BorderRadius.circular(18),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12.25),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.search_rounded,
             size: 15,
-            color: AppColors.authHint,
+            color: c.textSecondary,
           ),
           const SizedBox(width: 7.5),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF0F1115),
+                color: c.textPrimary,
                 height: 1.5,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 hintText: 'Search users…',
                 hintStyle: TextStyle(
                   fontSize: 14,
-                  color: Color(0x800F1115), // ≈ rgba(15,17,21,0.5)
+                  // 50% alpha of the primary text — the hint
+                  // dims correctly in both modes.
+                  color: c.textPrimary.withValues(alpha: 0.5),
                   height: 1.5,
                 ),
               ),
@@ -447,7 +447,7 @@ class _SearchField extends StatelessWidget {
 }
 
 // ===========================================================================
-// AddUserButton (8098:1212) — 37.5px blue circle with "+" icon
+// AddUserButton (8098:1212) — 37.5px brand-blue circle with "+" icon
 // ===========================================================================
 
 class _AddUserButton extends StatelessWidget {
@@ -457,6 +457,7 @@ class _AddUserButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
+      // Brand blue — stays #2563EB in both modes.
       color: const Color(0xFF2563EB),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
@@ -468,6 +469,7 @@ class _AddUserButton extends StatelessWidget {
           child: Icon(
             Icons.person_add_alt_1_rounded,
             size: 16,
+            // White on blue — stays white in both modes.
             color: Colors.white,
           ),
         ),
@@ -478,8 +480,9 @@ class _AddUserButton extends StatelessWidget {
 
 // ===========================================================================
 // FilterPill (8098:1219-1226) — 26.25h, pill-shaped
-//   selected: black bg + light text + black border
-//   unselected: white bg + grey text + grey border
+//   selected: inverts via c.textPrimary bg + c.surface fg
+//             (auto-flips black-on-light → near-white-on-dark)
+//   unselected: transparent bg + c.textSecondary fg + c.border
 // ===========================================================================
 
 class _FilterPill extends StatelessWidget {
@@ -494,9 +497,14 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? const Color(0xFF0F1115) : Colors.transparent;
-    final fg = selected ? const Color(0xFFF5F7FA) : const Color(0xFF6B7280);
-    final border = selected ? const Color(0xFF0F1115) : AppColors.authBorder;
+    final c = context.semantic;
+    // Inversion trick: when selected, use textPrimary as bg
+    // (dark in light mode, near-white in dark mode) and surface
+    // as fg (light in light mode, dark in dark mode). This
+    // mirrors the active filter chip in ticket_list_screen.
+    final bg = selected ? c.textPrimary : Colors.transparent;
+    final fg = selected ? c.surface : c.textSecondary;
+    final border = selected ? c.textPrimary : c.border;
     return Material(
       color: bg,
       borderRadius: BorderRadius.circular(33554400),
@@ -536,6 +544,7 @@ class _UserCard extends StatelessWidget {
   final VoidCallback onTap;
   const _UserCard({required this.user, required this.onTap});
 
+  // Role-specific brand colors — kept fixed across light/dark.
   static const Map<UserRole, Color> _roleColors = {
     UserRole.user: Color(0xFF3B82F6),
     UserRole.helpdesk: Color(0xFF3B82F6),
@@ -550,12 +559,13 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final color = _roleColors[user.role] ?? const Color(0xFF8B5CF6);
     final roleIcon = _roleIcons[user.role] ?? Icons.person_rounded;
     final roleLabel = _labelFor(user.role);
 
     return Material(
-      color: Colors.white,
+      color: c.surfaceCard,
       borderRadius: BorderRadius.circular(15),
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
@@ -564,19 +574,23 @@ class _UserCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: AppColors.authBorder, width: 1),
-            boxShadow: const [
+            border: Border.all(color: c.border, width: 1),
+            boxShadow: [
               BoxShadow(
-                color: Color(0x0F0F1115), // ≈ 0,1,1,rgba(15,17,21,0.06)
+                // 6% black in light mode, 10% white in dark mode
+                // (avoids the "invisible shadow on dark bg" trap
+                // — the old literal #0F0F1115 would not show on
+                // a #0F0F1115 dark page).
+                color: c.shadow,
                 blurRadius: 1,
-                offset: Offset(0, 1),
+                offset: const Offset(0, 1),
               ),
             ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar — 40px purple, white initials
+              // Avatar — 40px brand purple, white initials
               Container(
                 width: 40,
                 height: 40,
@@ -605,10 +619,10 @@ class _UserCard extends StatelessWidget {
                       height: 21,
                       child: Text(
                         user.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF0F1115),
+                          color: c.textPrimary,
                           height: 21 / 14,
                         ),
                         maxLines: 1,
@@ -618,10 +632,10 @@ class _UserCard extends StatelessWidget {
                     const SizedBox(height: 1.875),
                     Text(
                       user.email,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF6B7280),
+                        color: c.textSecondary,
                         height: 18 / 12,
                       ),
                       maxLines: 1,
@@ -639,8 +653,8 @@ class _UserCard extends StatelessWidget {
                         Container(
                           width: 3.75,
                           height: 3.75,
-                          decoration: const BoxDecoration(
-                            color: AppColors.authBorder,
+                          decoration: BoxDecoration(
+                            color: c.border,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -650,10 +664,10 @@ class _UserCard extends StatelessWidget {
                             user.department.isEmpty
                                 ? '—'
                                 : user.department,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF6B7280),
+                              color: c.textSecondary,
                               height: 16.5 / 11,
                             ),
                             maxLines: 1,
@@ -670,13 +684,13 @@ class _UserCard extends StatelessWidget {
               InkWell(
                 borderRadius: BorderRadius.circular(14),
                 onTap: onTap,
-                child: const SizedBox(
+                child: SizedBox(
                   width: 30,
                   height: 30,
                   child: Icon(
                     Icons.chevron_right_rounded,
                     size: 16,
-                    color: Color(0xFF6B7280),
+                    color: c.textSecondary,
                   ),
                 ),
               ),
@@ -726,7 +740,9 @@ class _RolePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 1.875),
       decoration: BoxDecoration(
-        color: const Color(0x143B82F6), // rgba(59,130,246,0.12)
+        // Brand blue low-alpha tint (reads OK on both card
+        // surfaces).
+        color: const Color(0x143B82F6),
         borderRadius: BorderRadius.circular(33554400),
       ),
       child: Row(
@@ -774,33 +790,34 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
               size: 48,
-              color: Color(0xFF94A3B8),
+              color: c.textHint,
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Gagal memuat daftar pengguna',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F1115),
+                color: c.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '$error',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF6B7280),
+                color: c.textSecondary,
               ),
             ),
             const SizedBox(height: 12),
@@ -823,6 +840,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final hasQuery = query.trim().isNotEmpty;
     return Center(
       child: Padding(
@@ -835,7 +853,7 @@ class _EmptyState extends StatelessWidget {
                   ? Icons.search_off_rounded
                   : Icons.people_outline_rounded,
               size: 56,
-              color: const Color(0xFF94A3B8),
+              color: c.textHint,
             ),
             const SizedBox(height: 8),
             Text(
@@ -843,10 +861,10 @@ class _EmptyState extends StatelessWidget {
                   ? 'No users match "$query"'
                   : 'No ${filter.label.toLowerCase()} users',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF6B7280),
+                color: c.textSecondary,
               ),
             ),
           ],

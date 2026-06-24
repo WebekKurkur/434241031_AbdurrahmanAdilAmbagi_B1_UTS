@@ -17,6 +17,18 @@
 // Tapping save calls `currentUserProvider.notifier.updateUser` with
 // the toggled `isActive` and pops back to the list, which is
 // auto-refreshed by invalidating `adminUsersProvider`.
+//
+// 2026-06-24: Phase 14 of the theme refactor (ignore/todo-theme.md).
+// AppHeader, hero card, account info, actions card, role pill,
+// info row, save button all read `context.semantic` so they flip
+// with `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - blue #2563EB (toggle on track, save button bg)
+//   - purple #8B5CF6 (hero avatar)
+//   - green #10B981 (active dot, "Active" label, verified icon)
+//   - green low-alpha #1410B981 (verified icon container bg)
+//   - green #10B981 (success snackbar bg)
+//   - white on avatar + save button + toggle knob
+//   - statusOpen (red) used as error snackbar bg (legacy)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +36,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/auth/update_user_usecase.dart';
 import '../providers/auth_provider.dart';
-import '../providers/theme_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 
 class AdminUserDetailScreen extends ConsumerStatefulWidget {
@@ -66,7 +78,7 @@ class _AdminUserDetailScreenState
         SnackBar(
           content: Text('Pengguna ${updated.name} berhasil diperbarui'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: const Color(0xFF10B981), // brand green success
         ),
       );
       Navigator.pop(context, updated);
@@ -76,7 +88,7 @@ class _AdminUserDetailScreenState
         SnackBar(
           content: Text('Gagal memperbarui: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.statusOpen,
+          backgroundColor: AppColors.statusOpen, // legacy: brand red
         ),
       );
     } finally {
@@ -87,7 +99,7 @@ class _AdminUserDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: context.semantic.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -135,19 +147,19 @@ class _AdminUserDetailScreenState
 // AppHeader (8100:1761) — 52.5h frosted, back + title + username + toggle
 // ===========================================================================
 
-class _AppHeader extends ConsumerWidget {
+class _AppHeader extends StatelessWidget {
   final String username;
   const _AppHeader({required this.username});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeProvider) == ThemeMode.dark;
+  Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 52.5,
-      decoration: const BoxDecoration(
-        color: Color(0xCCF5F7FA), // 80% #f5f7fa
+      decoration: BoxDecoration(
+        color: c.surfaceFrosted, // 80% surface alpha
         border: Border(
-          bottom: BorderSide(color: AppColors.authBorder, width: 1),
+          bottom: BorderSide(color: c.border, width: 1),
         ),
       ),
       child: Padding(
@@ -167,13 +179,13 @@ class _AppHeader extends ConsumerWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
                       onTap: () => Navigator.maybePop(context),
-                      child: const SizedBox(
+                      child: SizedBox(
                         width: 33.75,
                         height: 33.75,
                         child: Icon(
                           Icons.arrow_back_rounded,
                           size: 20,
-                          color: Color(0xFF0F1115),
+                          color: c.textPrimary,
                         ),
                       ),
                     ),
@@ -188,22 +200,22 @@ class _AppHeader extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'User Detail',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F1115),
+                      color: c.textPrimary,
                       letterSpacing: -0.17,
                       height: 22.1 / 17,
                     ),
                   ),
                   Text(
                     username.isEmpty ? '—' : username,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF6B7280),
+                      color: c.textSecondary,
                       height: 15.6 / 12,
                     ),
                     maxLines: 1,
@@ -212,30 +224,8 @@ class _AppHeader extends ConsumerWidget {
                 ],
               ),
             ),
-            // Theme toggle (8100:1771) — 33.75×33.75 bordered
-            InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => ref.read(themeProvider.notifier).cycle(),
-              child: Container(
-                width: 33.75,
-                height: 33.75,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.authBorder,
-                    width: 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  isDark
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded,
-                  size: 16,
-                  color: const Color(0xFF0F1115),
-                ),
-              ),
-            ),
+            // (Theme toggle removed — lives on profile + settings
+            // per the latest IA)
           ],
         ),
       ),
@@ -260,27 +250,30 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     final roleLabel = _labelFor(user.role);
     final roleIcon = _roleIcons[user.role] ?? Icons.person_rounded;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        color: c.surfaceCard,
+        border: Border.all(color: c.border, width: 1),
         borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0F0F1115), // ≈ rgba(15,17,21,0.06)
+            // 6% black in light mode, 10% white in dark mode
+            // (avoids the "invisible shadow on dark bg" trap).
+            color: c.shadow,
             blurRadius: 1,
-            offset: Offset(0, 1),
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar — 56px purple
+          // Avatar — 56px brand purple, white initials
           Container(
             width: 56,
             height: 56,
@@ -308,10 +301,10 @@ class _HeroCard extends StatelessWidget {
               children: [
                 Text(
                   user.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F1115),
+                    color: c.textPrimary,
                     height: 25.5 / 17,
                   ),
                   maxLines: 1,
@@ -320,10 +313,10 @@ class _HeroCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   user.email,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF6B7280),
+                    color: c.textSecondary,
                     height: 18 / 12,
                   ),
                   maxLines: 1,
@@ -332,15 +325,19 @@ class _HeroCard extends StatelessWidget {
                 const SizedBox(height: 7.5),
                 Row(
                   children: [
-                    // Role pill (8100:1785) — #f1f4f8 bg, 11px icon +
-                    // 11px Semi Bold label
+                    // Role pill (8100:1785) — tintNeutral bg,
+                    // 11px icon + 11px Semi Bold label
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 9.375,
                         vertical: 1.875,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F4F8),
+                        // Role pill uses tintNeutral (light tint in
+                        // light mode, dark grey in dark mode) so it
+                        // sits in a slot between the page surface
+                        // and the card surface.
+                        color: c.tintNeutral,
                         borderRadius: BorderRadius.circular(33554400),
                       ),
                       child: Row(
@@ -349,15 +346,15 @@ class _HeroCard extends StatelessWidget {
                           Icon(
                             roleIcon,
                             size: 12,
-                            color: const Color(0xFF6B7280),
+                            color: c.textSecondary,
                           ),
                           const SizedBox(width: 5.625),
                           Text(
                             ' $roleLabel',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF6B7280),
+                              color: c.textSecondary,
                               height: 16.5 / 11,
                             ),
                           ),
@@ -365,7 +362,8 @@ class _HeroCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 5.625),
-                    // Green dot + Active label
+                    // Green dot + Active label — green brand
+                    // color fixed in both modes
                     Container(
                       width: 5.625,
                       height: 5.625,
@@ -382,7 +380,7 @@ class _HeroCard extends StatelessWidget {
                         fontWeight: FontWeight.w400,
                         color: user.isActive
                             ? const Color(0xFF10B981)
-                            : const Color(0xFF6B7280),
+                            : c.textSecondary,
                         height: 16.5 / 11,
                       ),
                     ),
@@ -427,10 +425,10 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text.toUpperCase(),
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF6B7280),
+        color: context.semantic.textSecondary,
         letterSpacing: 0.66,
         height: 16.5 / 11,
       ),
@@ -439,8 +437,8 @@ class _SectionLabel extends StatelessWidget {
 }
 
 // ===========================================================================
-// AccountInfoCard (8100:1797) — 55h white 15px-radius card with 1 row
-// (department)
+// AccountInfoCard (8100:1797) — 55h surfaceCard 15px-radius card with
+// 1 row (department)
 // ===========================================================================
 
 class _AccountInfoCard extends StatelessWidget {
@@ -449,10 +447,11 @@ class _AccountInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        color: c.surfaceCard,
+        border: Border.all(color: c.border, width: 1),
         borderRadius: BorderRadius.circular(15),
       ),
       clipBehavior: Clip.antiAlias,
@@ -477,6 +476,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11.25),
       child: Row(
@@ -485,29 +485,32 @@ class _InfoRow extends StatelessWidget {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F4F8),
+              // Inset icon chip — uses tintNeutral (between page
+              // surface and card surface) so the icon chip is
+              // visibly distinct from the surrounding card.
+              color: c.tintNeutral,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(iconData, size: 15, color: const Color(0xFF6B7280)),
+            child: Icon(iconData, size: 15, color: c.textSecondary),
           ),
           const SizedBox(width: 11.25),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF6B7280),
+                color: c.textSecondary,
                 height: 19.5 / 13,
               ),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF0F1115),
+              color: c.textPrimary,
               height: 19.5 / 13,
             ),
           ),
@@ -518,7 +521,7 @@ class _InfoRow extends StatelessWidget {
 }
 
 // ===========================================================================
-// ActionsCard (8100:1928) — 56h white 15px-radius card with 1 row
+// ActionsCard (8100:1928) — 56h surfaceCard 15px-radius card with 1 row
 // (active account toggle)
 // ===========================================================================
 
@@ -534,10 +537,11 @@ class _ActionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.authBorder, width: 1),
+        color: c.surfaceCard,
+        border: Border.all(color: c.border, width: 1),
         borderRadius: BorderRadius.circular(15),
       ),
       clipBehavior: Clip.antiAlias,
@@ -545,7 +549,8 @@ class _ActionsCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11.25),
         child: Row(
           children: [
-            // Green icon container (8100:1930) — 30px, rgba(16,185,129,0.14)
+            // Green icon container (8100:1930) — 30px, brand green
+            // low-alpha tint (reads OK on both card surfaces).
             Container(
               width: 30,
               height: 30,
@@ -561,18 +566,18 @@ class _ActionsCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 11.25),
-            const Expanded(
+            Expanded(
               child: Text(
                 'active account',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF0F1115),
+                  color: c.textPrimary,
                   height: 19.6 / 14,
                 ),
               ),
             ),
-            // iOS-style blue toggle (8100:2000) — 37.5×22.5, white knob
+            // iOS-style toggle (8100:2000) — 37.5×22.5, white knob
             // (knob position: left=1.75 / right=36.63 → 19px wide)
             GestureDetector(
               onTap: disabled ? null : () => onChanged(!isActive),
@@ -583,8 +588,12 @@ class _ActionsCard extends StatelessWidget {
                 height: 22.5,
                 decoration: BoxDecoration(
                   color: isActive
+                      // On: brand blue (fixed)
                       ? const Color(0xFF2563EB)
-                      : const Color(0xFFE5E7EB),
+                      // Off: c.border (so the off state reads as
+                      // "muted track" in both modes — light grey
+                      // in light mode, darker grey in dark mode).
+                      : c.border,
                   borderRadius: BorderRadius.circular(33554400),
                 ),
                 child: Stack(
@@ -600,13 +609,18 @@ class _ActionsCard extends StatelessWidget {
                         width: 19,
                         height: 19,
                         decoration: BoxDecoration(
+                          // White knob — stays white in both modes
+                          // (sits on a colored track).
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          boxShadow: const [
+                          boxShadow: [
                             BoxShadow(
-                              color: Color(0x0F0F1115), // 0,1,2 rgba(15,17,21,0.06)
+                              // 6% black / 10% white — visible on
+                              // both the colored on-track and the
+                              // c.border off-track.
+                              color: c.shadow,
                               blurRadius: 2,
-                              offset: Offset(0, 1),
+                              offset: const Offset(0, 1),
                             ),
                           ],
                         ),
@@ -624,7 +638,7 @@ class _ActionsCard extends StatelessWidget {
 }
 
 // ===========================================================================
-// SaveButton (8100:1997) — 42h full-width blue 18px-radius
+// SaveButton (8100:1997) — 42h full-width brand-blue 18px-radius
 // ===========================================================================
 
 class _SaveButton extends StatelessWidget {
@@ -642,6 +656,7 @@ class _SaveButton extends StatelessWidget {
     return Opacity(
       opacity: enabled ? 1 : 0.5,
       child: Material(
+        // Brand blue — stays #2563EB in both modes.
         color: const Color(0xFF2563EB),
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
@@ -661,6 +676,7 @@ class _SaveButton extends StatelessWidget {
                     )
                   : const Text(
                       'simpan perubahan',
+                      // White on blue — stays white in both modes.
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,

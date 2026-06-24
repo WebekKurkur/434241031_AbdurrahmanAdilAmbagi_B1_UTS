@@ -16,7 +16,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_semantic.dart';
 import '../widgets/auth_field.dart';
 import '../widgets/auth_scaffold.dart';
 
@@ -96,24 +96,25 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   Widget _buildBackLink() {
+    final c = context.semantic;
     return GestureDetector(
       onTap: _isLoading ? null : () => Navigator.pop(context),
       behavior: HitTestBehavior.opaque,
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(
             Icons.arrow_back_rounded,
             size: 14,
-            color: AppColors.authHint,
+            color: c.textSecondary,
           ),
-          SizedBox(width: 5.625),
+          const SizedBox(width: 5.625),
           Text(
             'Back to sign in',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: AppColors.authHint,
+              color: c.textSecondary,
               height: 1.5,
             ),
           ),
@@ -123,27 +124,28 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   Widget _buildHeading() {
+    final c = context.semantic;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           'Reset your password',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: AppColors.authFieldText,
+            color: c.textPrimary,
             letterSpacing: -0.48,
             height: 1.25,
           ),
         ),
-        SizedBox(height: 3.75),
+        const SizedBox(height: 3.75),
         Text(
           "Enter the email tied to your Helpdesk account and we'll "
           'send you a reset link.',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: AppColors.authHint,
+            color: c.textSecondary,
             height: 1.5,
           ),
         ),
@@ -181,6 +183,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   Widget _buildSuccessView() {
+    final c = context.semantic;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -189,24 +192,26 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: AppColors.authPrimary.withValues(alpha: 0.1),
+              // Low-alpha brand-blue tint — reads OK on both
+              // surfaceCard (light) and surface (dark).
+              color: const Color(0xFF2563EB).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(36),
             ),
             child: const Icon(
               Icons.check_rounded,
               size: 40,
-              color: AppColors.authPrimary,
+              color: Color(0xFF2563EB), // brand blue, fixed
             ),
           ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
         ),
         const SizedBox(height: 22.5),
-        const Text(
+        Text(
           'Email Terkirim!',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w800,
-            color: AppColors.authFieldText,
+            color: c.textPrimary,
             height: 1.3,
           ),
         ),
@@ -214,19 +219,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         Text(
           'Kami telah mengirim link reset password ke:\n${_emailController.text.trim()}',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: AppColors.authHint,
+            color: c.textSecondary,
             height: 1.5,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Cek inbox atau folder spam Anda. Link akan kadaluarsa dalam 1 jam.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
-            color: AppColors.authHint,
+            color: c.textSecondary,
             height: 1.5,
           ),
         ),
@@ -236,7 +241,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           child: ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.authPrimary,
+              backgroundColor: const Color(0xFF2563EB), // brand blue, fixed
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -263,12 +268,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 _errorMessage = null;
               });
             },
-            child: const Text(
+            child: Text(
               'Kirim ulang ke email lain',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: AppColors.authPrimary,
+                color: const Color(0xFF2563EB), // brand blue, fixed
               ),
             ),
           ),
@@ -284,24 +289,33 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.authErrorBg,
+        // Error banner bg flips: pale-red tint in light mode
+        // (#FEF2F2), tintNeutral in dark mode so the brand red
+        // icon + text pop.
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.authError.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: AppColors.authError, size: 16),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFEF4444), // brand red, fixed
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
                 fontSize: 12,
-                color: AppColors.authError,
+                color: Color(0xFFEF4444), // brand red, fixed
                 fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
@@ -325,8 +339,9 @@ class _SendButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.authPrimary,
-          disabledBackgroundColor: AppColors.authPrimary.withValues(alpha: 0.6),
+          backgroundColor: const Color(0xFF2563EB), // brand blue, fixed
+          disabledBackgroundColor:
+              const Color(0xFF2563EB).withValues(alpha: 0.6),
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(

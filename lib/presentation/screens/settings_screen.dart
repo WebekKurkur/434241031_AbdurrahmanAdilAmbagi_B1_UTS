@@ -2,31 +2,19 @@
 //
 // Redesign (2026-06-22) per Figma node 8071:273.
 //
-// AppHeader (81 px tall, rgba(245,247,250,0.8) bg + 1 px
-// #e5e7eb bottom border):
-//   - 33.75 × 33.75 back button (negative-margin overflow)
-//   - "Settings" 17 px Semi Bold #0f1115, letter-spacing -0.17
-//
-// Body: 4 section groups, pl/pr 18.75, pt 15, pb 37.5,
-// gap 18.75 between groups. Each group has an UPPERCASE
-// section title (11 px Semi Bold #6b7280, tracking 0.66,
-// pl 3.75) + a single white card (15 px radius, 1 px border,
-// inner padding 1).
-//
-//   APPEARANCE    Theme row + Light/Dark segmented control
-//   NOTIFICATIONS Push notifications toggle + Email notifications toggle
-//   SECURITY      Change password (Update link) + Two-factor (Enabled pill)
-//   ABOUT         Version (v2.0.1) + Terms & Privacy (View link)
-//
-// Bottom nav is owned by HomeScreen; this screen doesn't draw
-// one. The "Profile" tab is highlighted when this is reached
-// from the profile screen's Settings row.
+// 2026-06-24: Phase 9 of the theme refactor (ignore/todo-theme.md).
+// AppHeader, 4 section cards, segmented control, toggle, status
+// pill, link text all read `context.semantic` so they flip with
+// `Theme.of(context).brightness`. Brand colors stay fixed:
+//   - blue #2563EB toggle on + link text
+//   - green #10B981 Two-factor "Enabled" pill
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────
@@ -47,7 +35,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppColors.authBg,
+      backgroundColor: context.semantic.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -97,12 +85,13 @@ class _AppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 81,
-      decoration: const BoxDecoration(
-        color: Color(0xCCF5F7FA), // 80% #f5f7fa
+      decoration: BoxDecoration(
+        color: c.surfaceFrosted, // 80% surface alpha
         border: Border(
-          bottom: BorderSide(color: AppColors.authBorder, width: 1),
+          bottom: BorderSide(color: c.border, width: 1),
         ),
       ),
       child: Padding(
@@ -131,10 +120,10 @@ class _AppHeader extends StatelessWidget {
                           color: Colors.transparent,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.arrow_back_rounded,
                           size: 20,
-                          color: AppColors.authFieldText,
+                          color: c.textPrimary,
                         ),
                       ),
                     ),
@@ -143,13 +132,13 @@ class _AppHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 11.25),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Settings',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.authFieldText,
+                  color: c.textPrimary,
                   letterSpacing: -0.17,
                   height: 1.3,
                 ),
@@ -176,10 +165,10 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 3.75),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppColors.authHint,
+          color: context.semantic.textSecondary,
           letterSpacing: 0.66,
           height: 1.5,
         ),
@@ -199,11 +188,12 @@ class _CardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.authBorder),
+        color: c.surfaceCard,
+        border: Border.all(color: c.border),
         borderRadius: BorderRadius.circular(15),
       ),
       clipBehavior: Clip.antiAlias,
@@ -216,7 +206,7 @@ class _CardDivider extends StatelessWidget {
   const _CardDivider();
   @override
   Widget build(BuildContext context) {
-    return Container(height: 1, color: AppColors.authBorder);
+    return Container(height: 1, color: context.semantic.border);
   }
 }
 
@@ -260,9 +250,10 @@ class _SegmentedTheme extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F4F8),
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(14),
       ),
       padding: const EdgeInsets.all(3.75),
@@ -298,6 +289,7 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -307,14 +299,14 @@ class _SegmentButton extends StatelessWidget {
         height: 26.25,
         padding: const EdgeInsets.symmetric(horizontal: 11.25),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
+          color: selected ? c.surfaceCard : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           boxShadow: selected
-              ? const [
+              ? [
                   BoxShadow(
-                    color: Color(0x0F0F1115),
+                    color: c.shadow,
                     blurRadius: 1,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                   ),
                 ]
               : const [],
@@ -325,7 +317,7 @@ class _SegmentButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: selected ? AppColors.authFieldText : AppColors.authHint,
+            color: selected ? c.textPrimary : c.textSecondary,
             height: 1.4,
           ),
         ),
@@ -411,6 +403,8 @@ class _SecurityCard extends ConsumerWidget {
           subtitle: 'Add an extra layer of security',
           trailing: const _StatusPill(
             label: 'Enabled',
+            // Low-alpha brand green — stays fixed across modes
+            // (reads OK on both surfaces).
             bg: Color(0x2410B981), // rgba(16,185,129,0.14)
             fg: Color(0xFF10B981),
           ),
@@ -441,12 +435,12 @@ class _AboutCard extends StatelessWidget {
       children: [
         _Row(
           title: 'Version',
-          trailing: const Text(
+          trailing: Text(
             'v2.0.1',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w400,
-              color: AppColors.authHint,
+              color: context.semantic.textSecondary,
               height: 1.5,
             ),
           ),
@@ -487,6 +481,7 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11.25),
       child: Row(
@@ -499,10 +494,10 @@ class _Row extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.authFieldText,
+                    color: c.textPrimary,
                     height: 1.5,
                   ),
                 ),
@@ -510,10 +505,10 @@ class _Row extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: AppColors.authHint,
+                      color: c.textSecondary,
                       height: 1.5,
                     ),
                     maxLines: 1,
@@ -551,9 +546,12 @@ class _Toggle extends StatelessWidget {
         width: w,
         height: h,
         decoration: BoxDecoration(
+          // Brand blue when on, semantic border when off. In
+          // dark mode the "off" track becomes #2D323B (visible
+          // against the dark card).
           color: value
               ? AppColors.authPrimary
-              : AppColors.authBorder,
+              : context.semantic.border,
           borderRadius: BorderRadius.circular(33554400),
         ),
         child: Stack(
@@ -567,13 +565,16 @@ class _Toggle extends StatelessWidget {
                 width: knob,
                 height: knob,
                 decoration: BoxDecoration(
+                  // Knob stays white in both modes (it sits on
+                  // a colored track, white is the highest-
+                  // contrast choice).
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x0F0F1115),
+                      color: context.semantic.shadow,
                       blurRadius: 2,
-                      offset: Offset(0, 1),
+                      offset: const Offset(0, 1),
                     ),
                   ],
                 ),

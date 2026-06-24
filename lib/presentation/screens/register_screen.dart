@@ -34,7 +34,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/auth/register_usecase.dart';
 import '../providers/auth_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_semantic.dart';
 import '../widgets/auth_field.dart';
 import '../widgets/auth_scaffold.dart';
 
@@ -189,26 +189,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Widget _buildHeading() {
+    final c = context.semantic;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           'Create your account',
           style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w700,
-            color: AppColors.authFieldText,
+            color: c.textPrimary,
             letterSpacing: -0.52,
             height: 1.25,
           ),
         ),
-        SizedBox(height: 3.75),
+        const SizedBox(height: 3.75),
         Text(
           'Submit and track IT support tickets across your organization.',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: AppColors.authHint,
+            color: c.textSecondary,
             height: 1.5,
           ),
         ),
@@ -268,7 +269,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
               size: 16,
-              color: AppColors.authHint,
+              color: context.semantic.textSecondary,
             ),
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
@@ -283,6 +284,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Widget _buildTermsRow() {
+    final c = context.semantic;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -297,12 +299,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               height: 15,
               decoration: BoxDecoration(
                 color: _agreeToTerms
-                    ? AppColors.authPrimary
-                    : AppColors.authFieldFill,
+                    ? const Color(0xFF2563EB) // brand blue, fixed
+                    : c.tintNeutral,
                 border: Border.all(
                   color: _agreeToTerms
-                      ? AppColors.authPrimary
-                      : AppColors.authBorder,
+                      ? const Color(0xFF2563EB) // brand blue, fixed
+                      : c.border,
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(3.75),
@@ -318,12 +320,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         Expanded(
           child: Wrap(
             children: [
-              const Text(
+              Text(
                 'I agree to the ',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.authHint,
+                  color: c.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -336,22 +338,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   );
                 },
-                child: const Text(
+                child: Text(
                   'Terms of Service',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.authPrimary,
+                    color: const Color(0xFF2563EB), // brand blue, fixed
                     height: 1.5,
                   ),
                 ),
               ),
-              const Text(
+              Text(
                 ' and ',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.authHint,
+                  color: c.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -364,22 +366,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   );
                 },
-                child: const Text(
+                child: Text(
                   'Privacy Policy',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.authPrimary,
+                    color: const Color(0xFF2563EB), // brand blue, fixed
                     height: 1.5,
                   ),
                 ),
               ),
-              const Text(
+              Text(
                 '.',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.authHint,
+                  color: c.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -401,8 +403,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: ElevatedButton(
           onPressed: enabled ? _handleRegister : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.authPrimary,
-            disabledBackgroundColor: AppColors.authPrimary,
+            backgroundColor: const Color(0xFF2563EB), // brand blue, fixed
+            disabledBackgroundColor:
+                const Color(0xFF2563EB), // brand blue, fixed
             foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -435,18 +438,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Widget _buildDivider() {
+    final c = context.semantic;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Expanded(child: _Hairline()),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 11.25),
-          child: const Text(
+          child: Text(
             'ALREADY HAVE AN ACCOUNT?',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w400,
-              color: AppColors.authHint,
+              color: c.textSecondary,
               letterSpacing: 0.5,
               height: 1.5,
             ),
@@ -458,25 +462,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Widget _buildSignInInstead() {
+    final c = context.semantic;
     return SizedBox(
       width: double.infinity,
       height: 41.25,
       child: OutlinedButton(
         onPressed: _isLoading ? null : () => Navigator.pop(context),
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.authFieldText,
-          side: const BorderSide(color: AppColors.authBorder),
+          foregroundColor: c.textPrimary,
+          side: BorderSide(color: c.border, width: 1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
           padding: EdgeInsets.zero,
         ),
-        child: const Text(
+        child: Text(
           'Sign in instead',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: AppColors.authFieldText,
+            color: c.textPrimary,
             height: 1.5,
           ),
         ),
@@ -485,16 +490,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Widget _buildFooter() {
+    final c = context.semantic;
     return Center(
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const Text(
+          Text(
             'Having trouble? ',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w400,
-              color: AppColors.authHint,
+              color: c.textSecondary,
               height: 1.5,
             ),
           ),
@@ -507,12 +513,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
               );
             },
-            child: const Text(
+            child: Text(
               'Contact IT support',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: AppColors.authPrimary,
+                color: const Color(0xFF2563EB), // brand blue, fixed
                 height: 1.5,
               ),
             ),
@@ -530,47 +536,49 @@ class _DepartmentDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       height: 41.25,
       decoration: BoxDecoration(
-        color: AppColors.authFieldFill,
-        border: Border.all(color: AppColors.authBorder),
+        // Subtle inset (Option A): tintNeutral bg + 1px border.
+        color: c.tintNeutral,
+        border: Border.all(color: c.border, width: 1),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.25),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.25),
             child: Icon(Icons.business_outlined,
-                size: 16, color: AppColors.authHint),
+                size: 16, color: c.textSecondary),
           ),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: value,
                 isExpanded: true,
-                hint: const Text(
+                hint: Text(
                   'Department',
                   style: TextStyle(
                     fontSize: 15,
-                    color: AppColors.authHint,
+                    color: c.textSecondary,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                icon: const Padding(
-                  padding: EdgeInsets.only(right: 12.25),
+                icon: Padding(
+                  padding: const EdgeInsets.only(right: 12.25),
                   child: Icon(
                     Icons.expand_more_rounded,
                     size: 16,
-                    color: AppColors.authHint,
+                    color: c.textSecondary,
                   ),
                 ),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
-                  color: AppColors.authFieldText,
+                  color: c.textPrimary,
                 ),
-                dropdownColor: AppColors.authFieldFill,
+                dropdownColor: c.tintNeutral,
                 borderRadius: BorderRadius.circular(18),
                 items: _RegisterScreenState._departments
                     .map((d) => DropdownMenuItem<String>(
@@ -597,24 +605,33 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.semantic;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.authErrorBg,
+        // Error banner bg flips: pale-red tint in light mode
+        // (#FEF2F2), tintNeutral in dark mode so the brand red
+        // icon + text pop.
+        color: c.tintNeutral,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.authError.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: AppColors.authError, size: 16),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFEF4444), // brand red, fixed
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
                 fontSize: 12,
-                color: AppColors.authError,
+                color: Color(0xFFEF4444), // brand red, fixed
                 fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
@@ -631,6 +648,6 @@ class _Hairline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(height: 1, color: AppColors.authBorder);
+    return Container(height: 1, color: context.semantic.border);
   }
 }

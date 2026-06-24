@@ -48,7 +48,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDarkMode = ref.watch(isDarkModeProvider);
+    final themeMode = ref.watch(themeProvider);
 
     // Activate the side-effect provider that invalidates ticket
     // providers on every Supabase auth event. This is what makes a
@@ -61,7 +61,7 @@ class MyApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      themeMode: themeMode,
       initialRoute: '/splash',
       routes: {
         '/splash': (_) => const SplashScreen(),

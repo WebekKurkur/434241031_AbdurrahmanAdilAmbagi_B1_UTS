@@ -58,6 +58,11 @@ class AppColors {
   static const authErrorBg = Color(0xFFFEF2F2);     // error banner bg
   static const authPrimary = Color(0xFF2563EB);     // primary action
   static const authPrimaryPressed = Color(0xFF1D4ED8);
+
+  // Profile-screen accent. Purple avatar + role-pill text/bg
+  // (rgba(139,92,246,0.12) is the soft pill background).
+  static const authAvatarBg = Color(0xFF8B5CF6);
+  static const authAvatarBgSoft = Color(0x1F8B5CF6); // 12% purple
 }
 
 class AppTheme {

@@ -27,6 +27,18 @@ class AuthDataSource {
     return _userFromAuth(authUser);
   }
 
+  /// When the current user's password was last updated (auth
+  /// row `updated_at`). `null` if no session. Used by the
+  /// settings screen to show a "Last updated X days ago"
+  /// subtitle next to "Change password".
+  DateTime? get passwordUpdatedAt {
+    final u = _client.auth.currentUser;
+    if (u == null) return null;
+    final iso = u.updatedAt;
+    if (iso == null) return null;
+    return DateTime.tryParse(iso);
+  }
+
   /// Async profile lookup for the currently signed-in user.
   /// Returns `null` if the user is not signed in.
   /// On cold start (a valid session is in storage but no profile

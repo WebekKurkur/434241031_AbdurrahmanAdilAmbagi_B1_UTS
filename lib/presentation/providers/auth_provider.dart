@@ -192,6 +192,14 @@ final isLoggedInProvider = Provider((ref) {
   return ref.watch(currentUserProvider) != null;
 });
 
+/// When the current user's password was last updated. `null`
+/// if no session or the auth row has no `updated_at`. Drives
+/// the "Last updated X days ago" subtitle on the settings
+/// screen's "Change password" row.
+final passwordUpdatedAtProvider = Provider<DateTime?>((ref) {
+  return ref.watch(authDataSourceProvider).passwordUpdatedAt;
+});
+
 /// Async profile lookup. Resolves the current Supabase session and
 /// hydrates the matching `profiles` row. Use this on the splash
 /// screen to decide whether to navigate to `/login` or `/home`.

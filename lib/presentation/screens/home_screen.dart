@@ -2,13 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
-import '../../domain/entities/user_entity.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'ticket_list_screen.dart';
 import 'profile_screen.dart';
-import 'create_ticket_screen.dart';
+import 'notification_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -22,44 +20,106 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: AppColors.authBg,
       body: _buildScreen(_currentIndex),
-      floatingActionButton: currentUser?.role == UserRole.user
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const CreateTicketScreen()),
+      // FAB is owned by DashboardScreen per Figma node 8071:3.
+      // Bottom-nav pill matches Figma node 8077:2878:
+      //   - 50.5 px tall white pill, 15 px radius
+      //   - 1 px #e5e7eb border
+      //   - 6 px blur shadow at 8 % opacity (offset 0,4)
+      //   - 4 equal-width tabs, 20 px icon, 10 px label
+      //   - active tab: #2563eb icon + label (w600), 30×3.75
+      //     blue pill above the icon
+      bottomNavigationBar: Material(
+        color: AppColors.authBg,
+        elevation: 0,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(15, 7.5, 15, 15),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const double tabCount = 4;
+                const double barWidth = 30;
+                const double barHeight = 3.75;
+                final double tabW = constraints.maxWidth / tabCount;
+                final double barLeft =
+                    tabW * _currentIndex + (tabW - barWidth) / 2;
+                return Container(
+                  height: 50.5,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: AppColors.authBorder),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x140F1115),
+                        blurRadius: 6,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildNavItem(
+                                  0,
+                                  Icons.dashboard_outlined,
+                                  Icons.dashboard_rounded,
+                                  'Home',
+                                  isDark)),
+                          Expanded(
+                              child: _buildNavItem(
+                                  1,
+                                  Icons.confirmation_number_outlined,
+                                  Icons.confirmation_number_rounded,
+                                  'Tickets',
+                                  isDark)),
+                          Expanded(
+                              child: _buildNavItem(
+                                  2,
+                                  Icons.notifications_outlined,
+                                  Icons.notifications_rounded,
+                                  'Inbox',
+                                  isDark)),
+                          Expanded(
+                              child: _buildNavItem(
+                                  3,
+                                  Icons.person_outline_rounded,
+                                  Icons.person_rounded,
+                                  'Profile',
+                                  isDark)),
+                        ],
+                      ),
+                      // Active-tab indicator: 30 × 3.75 px blue pill
+                      // that sits ON TOP of the container edge
+                      // (top: -3.75) and is centered horizontally
+                      // over the active tab. Figma node 8077:2886.
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        top: -barHeight,
+                        left: barLeft,
+                        child: Container(
+                          width: barWidth,
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: AppColors.authPrimary,
+                            borderRadius:
+                                BorderRadius.circular(33554400),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
-              backgroundColor: AppColors.primary,
-              child: const Icon(Icons.add_rounded, color: Colors.white),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: Material(
-        color: isDark ? AppColors.cardDark : Colors.white,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.dashboard_outlined,
-                    Icons.dashboard_rounded, 'Dashboard', isDark),
-                _buildNavItem(
-                    1,
-                    Icons.confirmation_number_outlined,
-                    Icons.confirmation_number_rounded,
-                    'Tiket',
-                    isDark),
-                _buildNavItem(2, Icons.person_outline_rounded, Icons.person_rounded,
-                    'Profil', isDark),
-              ],
             ),
           ),
         ),
@@ -76,6 +136,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 1:
         return const TicketListScreen();
       case 2:
+        return const NotificationScreen();
+      case 3:
         return const ProfileScreen();
       default:
         return DashboardScreen(
@@ -90,43 +152,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              size: 22,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isSelected ? activeIcon : icon,
+            size: 20,
+            color: isSelected
+                ? AppColors.authPrimary
+                : AppColors.authHint,
+          ),
+          const SizedBox(height: 1.875),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight:
+                  isSelected ? FontWeight.w600 : FontWeight.w500,
               color: isSelected
-                  ? AppColors.primary
-                  : isDark
-                      ? AppColors.textSecondary
-                      : AppColors.textMuted,
+                  ? AppColors.authPrimary
+                  : AppColors.authHint,
+              height: 1.5,
             ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w400,
-                color: isSelected
-                    ? AppColors.primary
-                    : isDark
-                        ? AppColors.textSecondary
-                        : AppColors.textMuted,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

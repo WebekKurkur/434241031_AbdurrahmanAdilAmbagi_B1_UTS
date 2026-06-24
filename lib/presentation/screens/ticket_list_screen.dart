@@ -1,18 +1,38 @@
 // lib/presentation/screens/ticket_list_screen.dart
 //
-// Phase G1: switched from `userTicketsProvider` (load everything)
-// to `paginatedTicketsProvider` (page-at-a-time with lazy
-// loading). Each tab keeps its own page state via the
-// `.family` keyed on the tab's `TicketStatus?`.
+// Redesign (2026-06-22) per Figma node 8071:57.
+//
+// Header: "Tickets" 24 px bold + "X of Y tickets" subtitle +
+// "+ New" blue pill. Always-visible search bar (37.5 px pill).
+// Five horizontally scrollable filter chips (All / Open /
+// In Progress / Assigned / Closed), with the active chip
+// inverted to black-on-light. Ticket cards match the dashboard
+// recent-activity card (extracted to
+// `widgets/ticket_list_card.dart` so we share one source of
+// truth).
+//
+// Behaviour preserved:
+//   - `paginatedTicketsProvider(statusFilter)` for paginated data
+//   - Search filters client-side on title + ticket id
+//   - Pull-to-refresh + load-more on scroll bottom
+//   - Bottom nav owned by HomeScreen — Tickets tab is active
+//   - FAB owned by DashboardScreen — ticket list shows no FAB
+//
+// Note: the Figma copy is English. Indonesian copy ("Semua",
+// "Tiket") has been dropped in favour of the design spec.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/paginated_tickets_provider.dart';
+
 import '../../domain/entities/ticket_entity.dart';
+import '../../domain/entities/user_entity.dart';
+import '../providers/auth_provider.dart';
+import '../providers/paginated_tickets_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/ticket_card.dart';
 import '../widgets/shimmer_card.dart';
+import '../widgets/ticket_list_card.dart';
+import 'create_ticket_screen.dart';
 import 'ticket_detail_screen.dart';
 
 class TicketListScreen extends ConsumerStatefulWidget {
@@ -22,74 +42,46 @@ class TicketListScreen extends ConsumerStatefulWidget {
   ConsumerState<TicketListScreen> createState() => _TicketListScreenState();
 }
 
-class _TicketListScreenState extends ConsumerState<TicketListScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  String _searchQuery = '';
-  bool _showSearch = false;
+class _TicketListScreenState extends ConsumerState<TicketListScreen> {
+  /// Currently selected filter chip. `null` = All.
+  TicketStatus? _activeFilter;
   final _searchController = TextEditingController();
-
-  /// One ScrollController per tab. Tabs are recreated when the
-  /// user switches to a different filter so each tab keeps its
-  /// own scroll offset.
-  final Map<int, ScrollController> _scrollControllers = {};
+  String _searchQuery = '';
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
-    _tabController.addListener(_onTabChanged);
-    for (var i = 0; i < 5; i++) {
-      final ctrl = ScrollController();
-      ctrl.addListener(() {
-        if (!ctrl.hasClients) return;
-        // Trigger a fetch when within 200 px of the bottom (the
-        // "80%" pre-fetch rule from the G1 spec, expressed in
-        // pixels because flutter's ScrollController doesn't know
-        // its own visible extent).
-        if (ctrl.position.pixels >=
-            ctrl.position.maxScrollExtent - 200) {
-          ref
-              .read(paginatedTicketsProvider(_statusForTab(i)).notifier)
-              .loadNextPage();
-        }
-      });
-      _scrollControllers[i] = ctrl;
-    }
-  }
-
-  void _onTabChanged() {
-    // Trigger a rebuild so the tab's badge counts refresh.
-    setState(() {});
-  }
-
-  TicketStatus? _statusForTab(int tabIndex) {
-    switch (tabIndex) {
-      case 1:
-        return TicketStatus.open;
-      case 2:
-        return TicketStatus.assigned;
-      case 3:
-        return TicketStatus.inProgress;
-      case 4:
-        return TicketStatus.closed;
-      default:
-        return null; // "Semua" — no status filter
-    }
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    _tabController.removeListener(_onTabChanged);
-    _tabController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
-    for (final ctrl in _scrollControllers.values) {
-      ctrl.dispose();
-    }
     super.dispose();
   }
 
-  List<TicketEntity> _filterTickets(List<TicketEntity> tickets) {
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      ref.read(paginatedTicketsProvider(_activeFilter).notifier).loadNextPage();
+    }
+  }
+
+  void _onFilterTap(TicketStatus? filter) {
+    if (_activeFilter == filter) return;
+    setState(() => _activeFilter = filter);
+    ref.read(paginatedTicketsProvider(filter).notifier).setStatusFilter(filter);
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+  }
+
+  List<TicketEntity> _filterBySearch(List<TicketEntity> tickets) {
     if (_searchQuery.isEmpty) return tickets;
     final q = _searchQuery.toLowerCase();
     return tickets
@@ -101,195 +93,461 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = ref.watch(currentUserProvider);
+    final state = ref.watch(paginatedTicketsProvider(_activeFilter));
 
     return Scaffold(
-      appBar: AppBar(
-        title: _showSearch
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Cari tiket...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(fontSize: 16),
-                ),
-                onChanged: (v) => setState(() => _searchQuery = v),
-              )
-            : const Text('Daftar Tiket'),
-        actions: [
-          IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search_rounded),
-            onPressed: () {
-              setState(() {
-                _showSearch = !_showSearch;
-                if (!_showSearch) {
-                  _searchQuery = '';
-                  _searchController.clear();
-                }
-              });
-            },
+      backgroundColor: AppColors.authBg,
+      body: Stack(
+        children: [
+          // Scrollable list (under the sticky header).
+          Positioned.fill(
+            child: RefreshIndicator(
+              onRefresh: () => ref
+                  .read(paginatedTicketsProvider(_activeFilter).notifier)
+                  .refresh(),
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // Top spacer so the sticky header doesn't overlap
+                  // the first card. Header height = 18.75 (top) +
+                  // 30 (title) + 18 (subtitle) + 15 (margin) +
+                  // 37.5 (search) + 11.25 + 41.25 (chip row) +
+                  // 11.25 (bottom) = 183. We use 184 for safety.
+                  const SliverToBoxAdapter(child: SizedBox(height: 184)),
+                  _buildBodySlivers(state, user),
+                  const SliverToBoxAdapter(child: SizedBox(height: 110)),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(width: 4),
+          // Sticky frosted header.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _StickyHeader(
+              searchController: _searchController,
+              onSearchChanged: (v) => setState(() => _searchQuery = v),
+              activeFilter: _activeFilter,
+              onFilterChanged: _onFilterTap,
+              totalCount: state.totalCount,
+              visibleCount: state.tickets.length,
+              onNewTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateTicketScreen()),
+              ),
+              showNewButton: user?.role == UserRole.user,
+            ),
+          ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: _TabBar(isDark: isDark, controller: _tabController),
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: List.generate(5, (tabIndex) {
-          return _TabBody(
-            tabIndex: tabIndex,
-            statusFilter: _statusForTab(tabIndex),
-            scrollController: _scrollControllers[tabIndex]!,
-            searchQuery: _searchQuery,
-            filterFn: _filterTickets,
-          );
-        }),
       ),
     );
   }
-}
 
-class _TabBar extends ConsumerWidget {
-  final bool isDark;
-  final TabController controller;
-  const _TabBar({required this.isDark, required this.controller});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Watch each tab's state for the count badges. The provider
-    // is keyed by the tab's status filter, so each tab keeps its
-    // own page state.
-    final semua = ref.watch(paginatedTicketsProvider(null));
-    final open = ref.watch(paginatedTicketsProvider(TicketStatus.open));
-    final assigned =
-        ref.watch(paginatedTicketsProvider(TicketStatus.assigned));
-    final inProgress =
-        ref.watch(paginatedTicketsProvider(TicketStatus.inProgress));
-    final closed = ref.watch(paginatedTicketsProvider(TicketStatus.closed));
-
-    int count(PaginatedTicketsState s) => s.totalCount;
-
-    return TabBar(
-      controller: controller,
-      isScrollable: true,
-      tabAlignment: TabAlignment.start,
-      labelStyle:
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-      unselectedLabelStyle:
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
-      labelColor: AppColors.primary,
-      unselectedLabelColor:
-          isDark ? AppColors.textSecondary : AppColors.textMuted,
-      indicatorColor: AppColors.primary,
-      indicatorSize: TabBarIndicatorSize.tab,
-      tabs: [
-        Tab(text: 'Semua (${count(semua)})'),
-        Tab(text: 'Open (${count(open)})'),
-        Tab(text: 'Assigned (${count(assigned)})'),
-        Tab(text: 'Progress (${count(inProgress)})'),
-        Tab(text: 'Closed (${count(closed)})'),
-      ],
-    );
-  }
-}
-
-class _TabBody extends ConsumerWidget {
-  final int tabIndex;
-  final TicketStatus? statusFilter;
-  final ScrollController scrollController;
-  final String searchQuery;
-  final List<TicketEntity> Function(List<TicketEntity>) filterFn;
-
-  const _TabBody({
-    required this.tabIndex,
-    required this.statusFilter,
-    required this.scrollController,
-    required this.searchQuery,
-    required this.filterFn,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(paginatedTicketsProvider(statusFilter));
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+  Widget _buildBodySlivers(
+    PaginatedTicketsState state,
+    dynamic user,
+  ) {
     if (state.loading && state.tickets.isEmpty) {
-      return ListView.builder(
-        controller: scrollController,
-        itemCount: 4,
-        itemBuilder: (_, __) => const ShimmerCard(),
+      return SliverPadding(
+        padding: const EdgeInsets.fromLTRB(18.75, 11.25, 18.75, 0),
+        sliver: SliverList.builder(
+          itemCount: 4,
+          itemBuilder: (_, __) => const Padding(
+            padding: EdgeInsets.only(bottom: 11.25),
+            child: ShimmerCard(),
+          ),
+        ),
       );
     }
 
-    if (state.tickets.isEmpty && !state.loading) {
-      return _EmptyState(isDark: isDark);
+    final filtered = _filterBySearch(state.tickets);
+
+    if (filtered.isEmpty && !state.loading) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: _EmptyState(hasFilter: _searchQuery.isNotEmpty),
+      );
     }
 
-    final filtered = filterFn(state.tickets);
-
-    return RefreshIndicator(
-      onRefresh: () => ref
-          .read(paginatedTicketsProvider(statusFilter).notifier)
-          .refresh(),
-      child: ListView.builder(
-        controller: scrollController,
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(18.75, 11.25, 18.75, 0),
+      sliver: SliverList.builder(
         itemCount: filtered.length + (state.hasMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= filtered.length) {
-            // "Load more" footer
             return _LoadMoreFooter(
-              isDark: isDark,
               loading: state.loading,
               onTap: () => ref
-                  .read(paginatedTicketsProvider(statusFilter).notifier)
+                  .read(paginatedTicketsProvider(_activeFilter).notifier)
                   .loadNextPage(),
             );
           }
-          return TicketCard(
-            ticket: filtered[index],
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    TicketDetailScreen(ticketId: filtered[index].id),
+          final ticket = filtered[index];
+          return Padding(
+            padding: EdgeInsets.only(bottom: index == filtered.length - 1 ? 0 : 11.25),
+            child: TicketListCard(
+              ticket: ticket,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TicketDetailScreen(ticketId: ticket.id),
+                ),
               ),
-            ),
-          ).animate().fadeIn(
-                delay: Duration(milliseconds: 30 * index),
-                duration: 300.ms,
-              );
+            )
+                .animate()
+                .fadeIn(
+                    delay: Duration(milliseconds: 30 * index),
+                    duration: 300.ms)
+                .slideY(begin: 0.05),
+          );
         },
       ),
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  final bool isDark;
-  const _EmptyState({required this.isDark});
+// ─────────────────────────────────────────────────────────────────
+// Sticky header (Figma nodes 8071:1196-1236)
+// ─────────────────────────────────────────────────────────────────
+
+class _StickyHeader extends StatelessWidget {
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final TicketStatus? activeFilter;
+  final ValueChanged<TicketStatus?> onFilterChanged;
+  final int totalCount;
+  final int visibleCount;
+  final VoidCallback onNewTap;
+  final bool showNewButton;
+
+  const _StickyHeader({
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.activeFilter,
+    required this.onFilterChanged,
+    required this.totalCount,
+    required this.visibleCount,
+    required this.onNewTap,
+    required this.showNewButton,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return ClipRect(
+      child: BackdropContainer(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18.75, 18.75, 18.75, 11.25),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Row: title block + new button
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Tickets',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.authFieldText,
+                            letterSpacing: -0.48,
+                            height: 1.25,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '$visibleCount of $totalCount tickets',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: AppColors.authHint,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (showNewButton) _NewButton(onTap: onNewTap),
+                ],
+              ),
+              const SizedBox(height: 15),
+              _SearchField(
+                controller: searchController,
+                onChanged: onSearchChanged,
+              ),
+              const SizedBox(height: 11.25),
+              _FilterChips(
+                active: activeFilter,
+                onChanged: onFilterChanged,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class BackdropContainer extends StatelessWidget {
+  final Widget child;
+  const BackdropContainer({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    // Frosted-glass header per Figma: `rgba(245,247,250,0.88)`.
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xE0F5F7FA),
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.authBorder.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  const _SearchField({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 37.5,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.authBorder),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.25),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.search_rounded,
+              size: 15,
+              color: AppColors.authHint,
+            ),
+            const SizedBox(width: 7.5),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.authFieldText,
+                  fontWeight: FontWeight.w400,
+                ),
+                decoration: const InputDecoration(
+                  isCollapsed: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  hintText: 'Search by title or ID…',
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.authHint,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChips extends StatelessWidget {
+  final TicketStatus? active;
+  final ValueChanged<TicketStatus?> onChanged;
+  const _FilterChips({required this.active, required this.onChanged});
+
+  static const _chips = <_ChipSpec>[
+    _ChipSpec(label: 'All', status: null),
+    _ChipSpec(label: 'Open', status: TicketStatus.open),
+    _ChipSpec(label: 'In Progress', status: TicketStatus.inProgress),
+    _ChipSpec(label: 'Assigned', status: TicketStatus.assigned),
+    _ChipSpec(label: 'Closed', status: TicketStatus.closed),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 41.25,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // The negative-margin container from Figma (left: -3.75,
+          // width: 352) gives chips horizontal overflow off the
+          // edge so the scroll feels natural.
+          Positioned(
+            left: -3.75,
+            top: 11.25,
+            right: -3.75,
+            bottom: 0,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 3.75),
+              physics: const BouncingScrollPhysics(),
+              itemCount: _chips.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 3.75),
+              itemBuilder: (context, i) {
+                final chip = _chips[i];
+                final isActive = chip.status == active;
+                return _FilterChip(
+                  label: chip.label,
+                  active: isActive,
+                  onTap: () => onChanged(chip.status),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChipSpec {
+  final String label;
+  final TicketStatus? status;
+  const _ChipSpec({required this.label, required this.status});
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _FilterChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 30,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 12.25),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFF0F1115) : Colors.white,
+          border: Border.all(
+            color: active
+                ? const Color(0xFF0F1115)
+                : AppColors.authBorder,
+          ),
+          borderRadius: BorderRadius.circular(33554400),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: active ? AppColors.authBg : AppColors.authHint,
+            letterSpacing: -0.06,
+            height: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _NewButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 33.75,
+        padding: const EdgeInsets.symmetric(horizontal: 11.25),
+        decoration: BoxDecoration(
+          color: AppColors.authPrimary,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.add_rounded, size: 14, color: Colors.white),
+            SizedBox(width: 5.625),
+            Text(
+              'New',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Empty + footer states
+// ─────────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  final bool hasFilter;
+  const _EmptyState({required this.hasFilter});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 80),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.inbox_rounded,
-            size: 64,
-            color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+            hasFilter ? Icons.search_off_rounded : Icons.inbox_rounded,
+            size: 56,
+            color: AppColors.authHint.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
-            'Tidak ada tiket',
-            style: TextStyle(
-              fontSize: 16,
+            hasFilter ? 'No tickets match your search' : 'No tickets yet',
+            style: const TextStyle(
+              fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : AppColors.textPrimary,
+              color: AppColors.authHint,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasFilter
+                ? 'Try a different keyword'
+                : 'New tickets will appear here',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.authHint,
             ),
           ),
         ],
@@ -299,31 +557,27 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _LoadMoreFooter extends StatelessWidget {
-  final bool isDark;
   final bool loading;
   final VoidCallback onTap;
-  const _LoadMoreFooter({
-    required this.isDark,
-    required this.loading,
-    required this.onTap,
-  });
+  const _LoadMoreFooter({required this.loading, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Center(
         child: loading
             ? const SizedBox(
-                width: 20,
-                height: 20,
+                width: 18,
+                height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : TextButton.icon(
+            : TextButton(
                 onPressed: onTap,
-                icon: const Icon(Icons.expand_more_rounded, size: 18),
-                label: const Text('Muat Lebih Banyak'),
-                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.authPrimary,
+                ),
+                child: const Text('Load more'),
               ),
       ),
     );

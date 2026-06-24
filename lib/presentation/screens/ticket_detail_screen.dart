@@ -212,11 +212,13 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
   }
 
   Future<void> _openManageSheet(TicketEntity ticket) async {
-    if (!canManageTicket(ref.read(currentUserProvider)?.role)) return;
+    final role = ref.read(currentUserProvider)?.role;
+    if (!canManageTicket(role)) return;
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _ManageSheet(
+        role: role,
         onStatus: () {
           Navigator.pop(ctx);
           _openStatusSheet(ticket);
@@ -325,6 +327,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                   child: _AppHeader(
                     ticketCode: ticket.id,
                     category: ticket.category,
+                    canManage: canManage,
+                    onMore: () => _openManageSheet(ticket),
                   ),
                 ),
               ),
@@ -360,7 +364,14 @@ bool canManageTicket(UserRole? role) =>
 class _AppHeader extends ConsumerWidget {
   final String ticketCode;
   final String category;
-  const _AppHeader({required this.ticketCode, required this.category});
+  final bool canManage;
+  final VoidCallback onMore;
+  const _AppHeader({
+    required this.ticketCode,
+    required this.category,
+    required this.canManage,
+    required this.onMore,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -458,6 +469,33 @@ class _AppHeader extends ConsumerWidget {
                 ),
               ),
             ),
+            // 3-dots menu — only shown for admin / helpdesk.
+            // Opens the manage sheet (Update status, Assign to,
+            // Delete ticket — gated by role inside the sheet).
+            if (canManage) ...[
+              const SizedBox(width: 7.5),
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: onMore,
+                child: Container(
+                  width: 33.75,
+                  height: 33.75,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.authBorder,
+                      width: 1,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 18,
+                    color: Color(0xFF0F1115),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1416,10 +1454,12 @@ class _SendButton extends StatelessWidget {
 // ===========================================================================
 
 class _ManageSheet extends StatelessWidget {
+  final UserRole? role;
   final VoidCallback onStatus;
   final VoidCallback onAssign;
   final VoidCallback onDelete;
   const _ManageSheet({
+    required this.role,
     required this.onStatus,
     required this.onAssign,
     required this.onDelete,
@@ -1427,6 +1467,11 @@ class _ManageSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Admin sees all 3 actions; helpdesk only sees Update status.
+    final isAdmin = role == UserRole.admin;
+    final showAssign = isAdmin;
+    final showDelete = isAdmin;
+
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(15),
@@ -1455,24 +1500,38 @@ class _ManageSheet extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.swap_horiz_rounded),
               title: const Text('Update status'),
+              subtitle: const Text(
+                'Open, In Progress, Assigned, Closed',
+                style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+              ),
               onTap: onStatus,
             ),
-            ListTile(
-              leading: const Icon(Icons.person_add_alt_1_rounded),
-              title: const Text('Assign / reassign'),
-              onTap: onAssign,
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.delete_outline_rounded,
-                color: AppColors.authError,
+            if (showAssign)
+              ListTile(
+                leading: const Icon(Icons.person_add_alt_1_rounded),
+                title: const Text('Assign to'),
+                subtitle: const Text(
+                  'Reassign to a helpdesk user',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                ),
+                onTap: onAssign,
               ),
-              title: const Text(
-                'Delete ticket',
-                style: TextStyle(color: AppColors.authError),
+            if (showDelete)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.authError,
+                ),
+                title: const Text(
+                  'Delete ticket',
+                  style: TextStyle(color: AppColors.authError),
+                ),
+                subtitle: const Text(
+                  'Permanently remove this ticket',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                ),
+                onTap: onDelete,
               ),
-              onTap: onDelete,
-            ),
             const SizedBox(height: 4),
           ],
         ),

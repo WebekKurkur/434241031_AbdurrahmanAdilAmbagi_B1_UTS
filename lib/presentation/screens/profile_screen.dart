@@ -98,6 +98,10 @@ class ProfileScreen extends ConsumerWidget {
                     _IdentityCard(user: user),
                     const SizedBox(height: 15),
                     _KpiBlock(user: user),
+                    if (user.role == UserRole.admin) ...[
+                      const SizedBox(height: 11.25),
+                      const _UserManagementLink(),
+                    ],
                     const SizedBox(height: 18.75),
                     const _SettingsCard(),
                     const SizedBox(height: 15),
@@ -388,6 +392,99 @@ class _KpiBlock extends ConsumerWidget {
               t.status != TicketStatus.closed)
           .length,
       orElse: () => 0,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// User Management link (Figma 8098:425) — admin-only blue button
+// that opens `/admin/users`. Sits between the KPI block and the
+// settings list. Hidden for `user` and `helpdesk` roles.
+// ─────────────────────────────────────────────────────────────────
+
+class _UserManagementLink extends StatelessWidget {
+  const _UserManagementLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18.75),
+      child: Material(
+        color: const Color(0xFF2563EB),
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: () => Navigator.pushNamed(context, '/admin/users'),
+          child: Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x140F1115),
+                  blurRadius: 6,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Icon container — white-translucent 33.75x33.75
+                Container(
+                  width: 33.75,
+                  height: 33.75,
+                  decoration: BoxDecoration(
+                    color: const Color(0x2EFFFFFF), // ≈ rgba(255,255,255,0.18)
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 11.25),
+                // Title + subtitle
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'User Management',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          height: 1.5,
+                        ),
+                      ),
+                      Opacity(
+                        opacity: 0.75,
+                        child: Text(
+                          'Manage accounts & roles',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'presentation/theme/app_theme.dart';
 import 'presentation/screens/splash_screen.dart';
@@ -23,6 +24,14 @@ Future<void> main() async {
 
   // Load environment variables (SUPABASE_URL, SUPABASE_ANON_KEY)
   await dotenv.load(fileName: '.env');
+
+  // Initialise date formatting for the locales used in the app
+  // (the redesigned ticket detail / tracking sheets use
+  // `DateFormat('d MMMM y, HH:mm', 'id_ID')` etc. — without this
+  // call, `intl` throws `LocaleDataException` on the first build
+  // that hits a localised date).
+  await initializeDateFormatting('id_ID');
+  await initializeDateFormatting('en_US');
 
   // Initialize Supabase. Anonymous key is safe in client apps because
   // Row Level Security in the database enforces who can do what.

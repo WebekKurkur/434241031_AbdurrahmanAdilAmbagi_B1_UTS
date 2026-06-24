@@ -15,7 +15,6 @@ import '../../domain/usecases/ticket/add_comment_usecase.dart';
 import '../../domain/usecases/ticket/add_ticket_usecase.dart';
 import '../../domain/usecases/ticket/assign_ticket_usecase.dart';
 import '../../domain/usecases/ticket/delete_ticket_usecase.dart';
-import '../../domain/usecases/ticket/get_ticket_history_usecase.dart';
 import '../../domain/usecases/ticket/get_tickets_usecase.dart';
 import '../../domain/usecases/ticket/update_ticket_status_usecase.dart';
 import '../../domain/usecases/ticket/upload_ticket_image_usecase.dart';
@@ -67,12 +66,6 @@ final uploadTicketImageUseCaseProvider = Provider((ref) {
   final repository = ref.watch(ticketRepositoryProvider);
   return UploadTicketImageUseCase(repository);
 });
-
-final getTicketHistoryUseCaseProvider = Provider((ref) {
-  final repository = ref.watch(ticketRepositoryProvider);
-  return GetTicketHistoryUseCase(repository);
-});
-
 // All Tickets
 final allTicketsProvider = FutureProvider<List<TicketEntity>>((ref) async {
   final useCase = ref.watch(getTicketsUseCaseProvider);

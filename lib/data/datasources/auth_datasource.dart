@@ -152,15 +152,49 @@ class AuthDataSource {
     return UserModel.fromRow(row);
   }
 
-  /// Trigger a password-reset email. Supabase sends a one-time
-  /// link to `email` containing a token that the user clicks to
-  /// land on the redirect URL (configured per-project).
+  /// Self-serve password change (per the 2026-06-25 update spec).
+  /// We don't send reset emails — instead the user types their
+  /// email + current password + new password on the
+  /// forgot-password screen. We verify the old password by
+  /// attempting a `signInWithPassword`, then call
+  /// `auth.updateUser({password: newPassword})`. The verify
+  /// sign-in creates a session, so we sign back out at the
+  /// end to keep the `/login` landing explicit.
   ///
-  /// Throws on failure (invalid email, network error, rate
-  /// limit, etc.) so the caller can surface the error message
-  /// instead of silently reporting success.
-  Future<void> resetPassword(String email) async {
-    await _client.auth.resetPasswordForEmail(email);
+  /// Throws if:
+  ///   * the verify sign-in fails (wrong old password) \u2014
+  ///     bubbles `AuthException` from gotrue
+  ///   * `updateUser` is rejected (weak new password,
+  ///     network error, etc.) \u2014 bubbles the gotrue
+  ///     exception
+  Future<void> changePassword({
+    required String email,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    // 1. Verify old password. signInWithPassword will throw on
+    //    wrong credentials; we let that bubble.
+    final verify = await _client.auth.signInWithPassword(
+      email: email,
+      password: oldPassword,
+    );
+    if (verify.user == null) {
+      throw const AuthException('Password lama salah');
+    }
+
+    // 2. Update to the new password.
+    await _client.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+
+    // 3. The verify step left a session behind \u2014 sign it back
+    //    out so the user lands on `/login` after the success
+    //    screen, the same end-state as the email flow.
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // If sign-out fails the session will expire on its own.
+    }
   }
 
   /// Stream the profile (re-fetched on every auth change) so the UI

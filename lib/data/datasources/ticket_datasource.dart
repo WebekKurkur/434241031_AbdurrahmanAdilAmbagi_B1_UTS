@@ -296,9 +296,17 @@ class TicketDataSource {
       );
     }
     debugPrint('[tickets] assignTicket id=$ticketUuid to=$userId ($assignedTo)');
+    // Per the 2026-06-25 update spec: assigning to a helpdesk
+    // also flips status to in_progress in the same UPDATE.
+    // The DB trigger on `tickets` (0004_role_based_updates.sql)
+    // is happy with both columns changing because admin can
+    // change both `assigned_to` and `status`.
     await _client
         .from('tickets')
-        .update({'assigned_to': userId})
+        .update({
+          'assigned_to': userId,
+          'status': 'inProgress',
+        })
         .eq('id', ticketUuid)
         .timeout(const Duration(seconds: 8));
   }

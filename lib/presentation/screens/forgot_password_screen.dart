@@ -1,20 +1,23 @@
 // lib/presentation/screens/forgot_password_screen.dart
 //
-// Forgot password screen.
-// Two states:
-//   1. Form: "Back to sign in" link + heading + email field +
-//      "Send reset link" button.
-//   2. Success: green checkmark + confirmation + "Back to login".
+// Reset-password screen.
 //
-// Behaviour preserved from the previous version:
-// - `supabase.auth.resetPasswordForEmail()` still does the work.
-// - Email validation (regex) still gates submit.
-// - Error banner appears below the field on network failures.
+// 2026-06-25 update: instead of sending a reset email, the user
+// enters their email + current password + new password right
+// here. One-screen flow, no email round-trip, no token, no
+// expiry.
+//
+// Two states:
+//   1. Form: back-link + heading + email field + old-password
+//      field + new-password field + confirm-new-password field +
+//      "Change password" button.
+//   2. Success: green checkmark + confirmation + "Back to login".
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/usecases/auth/change_password_usecase.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_semantic.dart';
 import '../widgets/auth_field.dart';
@@ -30,6 +33,12 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
+  final _oldPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscureOld = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
   bool _isLoading = false;
   String? _errorMessage;
   bool _sent = false;
@@ -37,20 +46,64 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   @override
   void dispose() {
     _emailController.dispose();
+    _oldPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   String? _validateEmail(String? v) {
     if (v == null || v.trim().isEmpty) return 'Email harus diisi';
+    // Accept either a plain username (no `@`) or a full email.
+    // The repository resolves usernames via the `profiles`
+    // table so the user can keep typing `user` / `helpdesk` /
+    // `admin` from the login screen convention.
+    final trimmed = v.trim();
+    if (!trimmed.contains('@')) {
+      if (trimmed.length < 3) return 'Email / username minimal 3 karakter';
+      return null;
+    }
     final emailRegex = RegExp(r'^[\w.+\-]+@[\w\-]+\.[\w\-.]+$');
-    if (!emailRegex.hasMatch(v.trim())) return 'Format email tidak valid';
+    if (!emailRegex.hasMatch(trimmed)) return 'Format email tidak valid';
     return null;
   }
 
-  Future<void> _handleSend() async {
+  String? _validateOldPassword(String? v) {
+    if (v == null || v.isEmpty) return 'Password lama harus diisi';
+    if (v.length < 6) return 'Password minimal 6 karakter';
+    return null;
+  }
+
+  String? _validateNewPassword(String? v) {
+    if (v == null || v.isEmpty) return 'Password baru harus diisi';
+    if (v.length < 6) return 'Password minimal 6 karakter';
+    if (v == _oldPasswordController.text) {
+      return 'Password baru tidak boleh sama dengan yang lama';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? v) {
+    if (v == null || v.isEmpty) return 'Konfirmasi password harus diisi';
+    if (v != _newPasswordController.text) {
+      return 'Konfirmasi tidak cocok dengan password baru';
+    }
+    return null;
+  }
+
+  Future<void> _handleSubmit() async {
     final email = _emailController.text.trim();
-    if (_validateEmail(email) != null) {
-      setState(() => _errorMessage = _validateEmail(email));
+    final oldPwd = _oldPasswordController.text;
+    final newPwd = _newPasswordController.text;
+    final confirmPwd = _confirmPasswordController.text;
+
+    final emailErr = _validateEmail(email);
+    final oldErr = _validateOldPassword(oldPwd);
+    final newErr = _validateNewPassword(newPwd);
+    final confirmErr = _validateConfirmPassword(confirmPwd);
+    final firstErr = emailErr ?? oldErr ?? newErr ?? confirmErr;
+    if (firstErr != null) {
+      setState(() => _errorMessage = firstErr);
       return;
     }
 
@@ -62,7 +115,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     try {
       await ref
           .read(currentUserProvider.notifier)
-          .resetPassword(email);
+          .changePassword(ChangePasswordParams(
+            email: email,
+            oldPassword: oldPwd,
+            newPassword: newPwd,
+          ));
       if (!mounted) return;
       setState(() {
         _sent = true;
@@ -70,9 +127,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().replaceFirst('AuthRetryableFetchException: ', '');
       setState(() {
-        _errorMessage = 'Gagal mengirim email reset: $msg';
+        // Supabase errors arrive wrapped in AuthRetryableFetch /
+        // AuthException. Strip known prefixes so the UI shows a
+        // clean Indonesian message.
+        final raw = e.toString();
+        final stripped = raw
+            .replaceFirst('AuthRetryableFetchException: ', '')
+            .replaceFirst('AuthException: ', '')
+            .replaceFirst('FormatException: ', '')
+            .replaceFirst('Exception: ', '');
+        _errorMessage = 'Gagal ubah password: $stripped';
         _isLoading = false;
       });
     }
@@ -140,8 +205,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 3.75),
         Text(
-          "Enter the email tied to your Helpdesk account and we'll "
-          'send you a reset link.',
+          'Masukkan email, password lama, dan password baru untuk '
+          'mengubah password akun Anda.',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
@@ -159,27 +224,86 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       children: [
         AuthField(
           icon: Icons.alternate_email_rounded,
-          hint: 'you@company.id',
+          hint: 'you@company.id atau username',
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _handleSend(),
+          textInputAction: TextInputAction.next,
           validator: _validateEmail,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
+        ),
+        const SizedBox(height: 11.25),
+        AuthField(
+          icon: Icons.lock_outline_rounded,
+          hint: 'Password lama',
+          controller: _oldPasswordController,
+          obscureText: _obscureOld,
+          textInputAction: TextInputAction.next,
+          validator: _validateOldPassword,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
+          suffixIcon: _obscureSuffix(_obscureOld, () {
+            setState(() => _obscureOld = !_obscureOld);
+          }),
+        ),
+        const SizedBox(height: 11.25),
+        AuthField(
+          icon: Icons.lock_outline_rounded,
+          hint: 'Password baru',
+          controller: _newPasswordController,
+          obscureText: _obscureNew,
+          textInputAction: TextInputAction.next,
+          validator: _validateNewPassword,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
+          suffixIcon: _obscureSuffix(_obscureNew, () {
+            setState(() => _obscureNew = !_obscureNew);
+          }),
+        ),
+        const SizedBox(height: 11.25),
+        AuthField(
+          icon: Icons.lock_outline_rounded,
+          hint: 'Konfirmasi password baru',
+          controller: _confirmPasswordController,
+          obscureText: _obscureConfirm,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _handleSubmit(),
+          validator: _validateConfirmPassword,
+          onChanged: (_) {
+            if (_errorMessage != null) setState(() => _errorMessage = null);
+          },
+          suffixIcon: _obscureSuffix(_obscureConfirm, () {
+            setState(() => _obscureConfirm = !_obscureConfirm);
+          }),
         ),
         if (_errorMessage != null) ...[
           const SizedBox(height: 12),
           _ErrorBanner(message: _errorMessage!),
         ],
         const SizedBox(height: 22.5),
-        _SendButton(
+        _SubmitButton(
           busy: _isLoading,
-          onPressed: _isLoading ? null : _handleSend,
+          onPressed: _isLoading ? null : _handleSubmit,
         ),
       ],
     ).animate().fadeIn(delay: 160.ms, duration: 400.ms).slideY(begin: 0.05);
+  }
+
+  Widget _obscureSuffix(bool obscure, VoidCallback onTap) {
+    return IconButton(
+      iconSize: 18,
+      splashRadius: 18,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minHeight: 24, minWidth: 32),
+      icon: Icon(
+        obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+        color: const Color(0xFF94A3B8),
+      ),
+      onPressed: onTap,
+    );
   }
 
   Widget _buildSuccessView() {
@@ -192,21 +316,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              // Low-alpha brand-blue tint — reads OK on both
-              // surfaceCard (light) and surface (dark).
-              color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(36),
             ),
             child: const Icon(
               Icons.check_rounded,
               size: 40,
-              color: Color(0xFF2563EB), // brand blue, fixed
+              color: Color(0xFF10B981),
             ),
           ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
         ),
         const SizedBox(height: 22.5),
         Text(
-          'Email Terkirim!',
+          'Password berhasil diubah!',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 22,
@@ -217,20 +339,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Kami telah mengirim link reset password ke:\n${_emailController.text.trim()}',
+          'Silakan masuk kembali dengan password baru Anda.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
-            color: c.textSecondary,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Cek inbox atau folder spam Anda. Link akan kadaluarsa dalam 1 jam.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
             color: c.textSecondary,
             height: 1.5,
           ),
@@ -241,7 +353,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           child: ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB), // brand blue, fixed
+              backgroundColor: const Color(0xFF2563EB),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -255,25 +367,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
                 height: 1.4,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: TextButton(
-            onPressed: () {
-              setState(() {
-                _sent = false;
-                _errorMessage = null;
-              });
-            },
-            child: Text(
-              'Kirim ulang ke email lain',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF2563EB), // brand blue, fixed
               ),
             ),
           ),
@@ -293,9 +386,6 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        // Error banner bg flips: pale-red tint in light mode
-        // (#FEF2F2), tintNeutral in dark mode so the brand red
-        // icon + text pop.
         color: c.tintNeutral,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
@@ -306,7 +396,7 @@ class _ErrorBanner extends StatelessWidget {
         children: [
           const Icon(
             Icons.error_outline_rounded,
-            color: Color(0xFFEF4444), // brand red, fixed
+            color: Color(0xFFEF4444),
             size: 16,
           ),
           const SizedBox(width: 8),
@@ -315,7 +405,7 @@ class _ErrorBanner extends StatelessWidget {
               message,
               style: const TextStyle(
                 fontSize: 12,
-                color: Color(0xFFEF4444), // brand red, fixed
+                color: Color(0xFFEF4444),
                 fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
@@ -327,10 +417,10 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
-class _SendButton extends StatelessWidget {
+class _SubmitButton extends StatelessWidget {
   final bool busy;
   final VoidCallback? onPressed;
-  const _SendButton({required this.busy, required this.onPressed});
+  const _SubmitButton({required this.busy, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +429,7 @@ class _SendButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2563EB), // brand blue, fixed
+          backgroundColor: const Color(0xFF2563EB),
           disabledBackgroundColor:
               const Color(0xFF2563EB).withValues(alpha: 0.6),
           foregroundColor: Colors.white,
@@ -359,7 +449,7 @@ class _SendButton extends StatelessWidget {
                 ),
               )
             : const Text(
-                'Send reset link',
+                'Change password',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,

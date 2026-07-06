@@ -98,35 +98,6 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
   // Status / assign / delete (admin + helpdesk)
   // ---------------------------------------------------------------------------
 
-  Future<void> _openStatusSheet(TicketEntity ticket) async {
-    if (!canManageTicket(ref.read(currentUserProvider)?.role)) return;
-    final next = await showModalBottomSheet<TicketStatus>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _StatusSheet(current: ticket.status),
-    );
-    if (next == null || next == ticket.status || !mounted) return;
-    try {
-      await ref.read(updateTicketStatusUseCaseProvider)(
-        UpdateTicketStatusParams(ticketId: ticket.id, status: next),
-      );
-      ref.invalidate(ticketByIdProvider(widget.ticketId));
-      ref.invalidate(allTicketsProvider);
-      ref.invalidate(userTicketsProvider);
-      ref.invalidate(ticketStatsProvider);
-      invalidateAllPaginatedProviders(ref);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal ubah status: $e'),
-          backgroundColor: AppColors.authError,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
   Future<void> _openAssignSheet(TicketEntity ticket) async {
     if (!canManageTicket(ref.read(currentUserProvider)?.role)) return;
     final helpdesk = await ref.read(helpdeskUsersProvider.future);
@@ -207,18 +178,32 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
   Future<void> _openManageSheet(TicketEntity ticket) async {
     final role = ref.read(currentUserProvider)?.role;
     if (!canManageTicket(role)) return;
+    // Hide actions that don't apply to the current status, so a
+    // helpdesk user can't reopen a `closed` ticket or assign
+    // to a different helpdesk once it's already `inProgress`.
+    // (Reassign by admin is still allowed — only the helpdesk's
+    // view is gated.)
+    final showAssign =
+        role == UserRole.admin && ticket.status != TicketStatus.closed;
+    final showClose = role == UserRole.helpdesk &&
+        ticket.status == TicketStatus.inProgress;
+    final showDelete = role == UserRole.admin;
+
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _ManageSheet(
         role: role,
-        onStatus: () {
-          Navigator.pop(ctx);
-          _openStatusSheet(ticket);
-        },
+        showAssign: showAssign,
+        showClose: showClose,
+        showDelete: showDelete,
         onAssign: () {
           Navigator.pop(ctx);
           _openAssignSheet(ticket);
+        },
+        onClose: () {
+          Navigator.pop(ctx);
+          _confirmFinishTicket(ticket);
         },
         onDelete: () {
           Navigator.pop(ctx);
@@ -226,6 +211,59 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _confirmFinishTicket(TicketEntity ticket) async {
+    final role = ref.read(currentUserProvider)?.role;
+    if (role != UserRole.helpdesk) return;
+    if (ticket.status != TicketStatus.inProgress) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Selesaikan tiket?'),
+        content: const Text(
+          'Tiket akan ditandai sebagai Closed. Pastikan semua '
+          'pekerjaan sudah selesai.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusClosed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Selesaikan'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(updateTicketStatusUseCaseProvider)(
+        UpdateTicketStatusParams(
+          ticketId: ticket.id,
+          status: TicketStatus.closed,
+        ),
+      );
+      ref.invalidate(ticketByIdProvider(widget.ticketId));
+      ref.invalidate(allTicketsProvider);
+      ref.invalidate(userTicketsProvider);
+      ref.invalidate(ticketStatsProvider);
+      invalidateAllPaginatedProviders(ref);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyelesaikan tiket: $e'),
+          backgroundColor: AppColors.authError,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1484,22 +1522,30 @@ class _SendButton extends StatelessWidget {
 
 class _ManageSheet extends StatelessWidget {
   final UserRole? role;
-  final VoidCallback onStatus;
+  final bool showAssign;
+  final bool showClose;
+  final bool showDelete;
   final VoidCallback onAssign;
+  final VoidCallback onClose;
   final VoidCallback onDelete;
   const _ManageSheet({
     required this.role,
-    required this.onStatus,
+    required this.showAssign,
+    required this.showClose,
+    required this.showDelete,
     required this.onAssign,
+    required this.onClose,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Admin sees all 3 actions; helpdesk only sees Update status.
-    final isAdmin = role == UserRole.admin;
-    final showAssign = isAdmin;
-    final showDelete = isAdmin;
+    // Per the 2026-06-25 update spec:
+    //   * Admin: "Assign to helpdesk" (sets status → inProgress
+    //     automatically) + "Delete ticket".
+    //   * Helpdesk: "Mark as closed" (sets status → closed).
+    // The generic "Update status" sheet is gone — status changes
+    // are now driven by the role's specific action.
     final c = context.semantic;
 
     return SafeArea(
@@ -1527,24 +1573,31 @@ class _ManageSheet extends StatelessWidget {
                 ),
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.swap_horiz_rounded),
-              title: const Text('Update status'),
-              subtitle: Text(
-                'Open, In Progress, Assigned, Closed',
-                style: TextStyle(fontSize: 11, color: c.textSecondary),
-              ),
-              onTap: onStatus,
-            ),
             if (showAssign)
               ListTile(
-                leading: const Icon(Icons.person_add_alt_1_rounded),
-                title: const Text('Assign to'),
+                leading: const Icon(
+                  Icons.person_add_alt_1_rounded,
+                  color: AppColors.statusInProgress,
+                ),
+                title: const Text('Assign to helpdesk'),
                 subtitle: Text(
-                  'Reassign to a helpdesk user',
+                  'assign ke helpdesk yang tersedia',
                   style: TextStyle(fontSize: 11, color: c.textSecondary),
                 ),
                 onTap: onAssign,
+              ),
+            if (showClose)
+              ListTile(
+                leading: const Icon(
+                  Icons.task_alt_rounded,
+                  color: AppColors.statusClosed,
+                ),
+                title: const Text('Mark as closed'),
+                subtitle: Text(
+                  'tiket sudah selesai',
+                  style: TextStyle(fontSize: 11, color: c.textSecondary),
+                ),
+                onTap: onClose,
               ),
             if (showDelete)
               ListTile(
@@ -1561,78 +1614,6 @@ class _ManageSheet extends StatelessWidget {
                   style: TextStyle(fontSize: 11, color: c.textSecondary),
                 ),
                 onTap: onDelete,
-              ),
-            const SizedBox(height: 4),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusSheet extends StatelessWidget {
-  final TicketStatus current;
-  const _StatusSheet({required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.semantic;
-    final entries = <(TicketStatus, String, Color, Color)>[
-      (TicketStatus.open, 'Open', AppColors.statusOpen, AppColors.statusOpenBg),
-      (TicketStatus.assigned, 'Assigned', AppColors.statusAssigned, AppColors.statusAssignedBg),
-      (TicketStatus.inProgress, 'In Progress', AppColors.statusInProgress, AppColors.statusInProgressBg),
-      (TicketStatus.closed, 'Closed', AppColors.statusClosed, AppColors.statusClosedBg),
-    ];
-    return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: c.surfaceCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: c.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Update status',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: c.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-            for (final e in entries)
-              ListTile(
-                leading: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: e.$3,
-                    borderRadius: BorderRadius.circular(33554400),
-                  ),
-                ),
-                title: Text(
-                  e.$2,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight:
-                        e.$1 == current ? FontWeight.w600 : FontWeight.w400,
-                    color: e.$1 == current
-                        ? e.$3
-                        : c.textPrimary,
-                  ),
-                ),
-                trailing: e.$1 == current
-                    ? Icon(Icons.check_rounded, color: e.$3, size: 18)
-                    : null,
-                onTap: () => Navigator.pop(context, e.$1),
               ),
             const SizedBox(height: 4),
           ],

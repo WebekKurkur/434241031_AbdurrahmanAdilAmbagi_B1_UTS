@@ -30,12 +30,23 @@ abstract class AuthRepository {
     required String department,
   });
 
-  /// Trigger a password-reset email. Used by the forgot-password
-  /// screen (FR-004).
+  /// Self-serve password change. Replaces the email-based
+  /// reset link: we verify the user knows the existing
+  /// password by attempting a sign-in, then call
+  /// `auth.updateUser({password: newPassword})`. The user lands
+  /// signed-in (the verify signInWithPassword creates a
+  /// session), so we sign them back out at the end to keep
+  /// the `/login` landing explicit.
   ///
-  /// Throws on failure so the UI can surface a snackbar with the
-  /// error message instead of silently reporting success.
-  Future<void> resetPassword(String email);
+  /// Throws if `oldPassword` is wrong (the sign-in fails) or
+  /// if the updateUser call is rejected by Auth (weak
+  /// password, network error, etc.). The UI surfaces the
+  /// message verbatim.
+  Future<void> changePassword({
+    required String email,
+    required String oldPassword,
+    required String newPassword,
+  });
 
   /// Phase E: list all profiles (admin-only UI gate; the read
   /// policy itself is open to any authenticated user).

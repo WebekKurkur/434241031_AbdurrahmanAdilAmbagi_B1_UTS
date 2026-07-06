@@ -10,10 +10,10 @@ import '../../data/repositories/auth_repository_impl.dart';
 import '../../core/network/supabase_providers.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/usecases/auth/change_password_usecase.dart';
 import '../../domain/usecases/auth/login_usecase.dart';
 import '../../domain/usecases/auth/logout_usecase.dart';
 import '../../domain/usecases/auth/register_usecase.dart';
-import '../../domain/usecases/auth/reset_password_usecase.dart';
 import '../../domain/usecases/auth/get_all_users_usecase.dart';
 import '../../domain/usecases/auth/update_user_usecase.dart';
 
@@ -42,9 +42,10 @@ final registerUseCaseProvider = Provider((ref) {
   return RegisterUseCase(repository);
 });
 
-final resetPasswordUseCaseProvider = Provider((ref) {
+// 2026-06-25: self-serve password change (replaces the email flow).
+final changePasswordUseCaseProvider = Provider((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return ResetPasswordUseCase(repository);
+  return ChangePasswordUseCase(repository);
 });
 
 // Phase E: admin user management
@@ -79,7 +80,7 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
   final LoginUseCase loginUseCase;
   final LogoutUseCase logoutUseCase;
   final RegisterUseCase registerUseCase;
-  final ResetPasswordUseCase resetPasswordUseCase;
+  final ChangePasswordUseCase changePasswordUseCase;
   final UpdateUserUseCase updateUserUseCase;
   final AuthDataSource dataSource;
   StreamSubscription<UserEntity?>? _profileSub;
@@ -88,7 +89,7 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
     required this.loginUseCase,
     required this.logoutUseCase,
     required this.registerUseCase,
-    required this.resetPasswordUseCase,
+    required this.changePasswordUseCase,
     required this.updateUserUseCase,
     required this.dataSource,
     required UserEntity? initialUser,
@@ -125,11 +126,13 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
     return user;
   }
 
-  /// Trigger a password-reset email. Throws on failure so the UI
-  /// can surface the error message. Used by the forgot-password
-  /// screen (FR-004).
-  Future<void> resetPassword(String email) async {
-    await resetPasswordUseCase(email);
+  /// 2026-06-25: self-serve password change. Replaces the email
+  /// flow — the user types email + old password + new password
+  /// on the forgot-password screen. Throws on failure (wrong
+  /// old password, weak new password, etc.) so the UI can
+  /// surface the message verbatim.
+  Future<void> changePassword(ChangePasswordParams params) async {
+    await changePasswordUseCase(params);
   }
 
   /// Phase E: update another user's profile via the
@@ -180,7 +183,7 @@ final currentUserProvider =
     loginUseCase: ref.watch(loginUseCaseProvider),
     logoutUseCase: ref.watch(logoutUseCaseProvider),
     registerUseCase: ref.watch(registerUseCaseProvider),
-    resetPasswordUseCase: ref.watch(resetPasswordUseCaseProvider),
+    changePasswordUseCase: ref.watch(changePasswordUseCaseProvider),
     updateUserUseCase: ref.watch(updateUserUseCaseProvider),
     dataSource: dataSource,
     initialUser: repository.currentUser,

@@ -371,7 +371,6 @@ class _FilterChips extends StatelessWidget {
     _ChipSpec(label: 'All', status: null),
     _ChipSpec(label: 'Open', status: TicketStatus.open),
     _ChipSpec(label: 'In Progress', status: TicketStatus.inProgress),
-    _ChipSpec(label: 'Assigned', status: TicketStatus.assigned),
     _ChipSpec(label: 'Closed', status: TicketStatus.closed),
   ];
 

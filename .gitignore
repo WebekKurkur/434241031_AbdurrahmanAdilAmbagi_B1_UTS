@@ -50,7 +50,9 @@ app.*.map.json
 .env.example
 
 # supabase
-supabase
+/supabase
 
 # docs
-ignore
+/ignore
+**/android/app/upload-keystore.jks
+**/android/key.properties

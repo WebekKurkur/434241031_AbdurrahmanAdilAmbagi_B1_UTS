@@ -2,6 +2,8 @@
 //
 // Bridges the domain layer to the Supabase AuthDataSource.
 
+import 'package:gotrue/gotrue.dart' show AuthException;
+
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_datasource.dart';
@@ -56,8 +58,27 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> resetPassword(String email) async {
-    await dataSource.resetPassword(email);
+  Future<void> changePassword({
+    required String email,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    // Look up email from username first so the user can keep
+    // typing `helpdesk` / `admin` / `user` instead of an email
+    // address. (Same shortcut the login screen uses.)
+    var resolvedEmail = email;
+    if (!email.contains('@')) {
+      final found = await dataSource.resolveEmail(email);
+      if (found == null) {
+        throw const AuthException('Akun tidak ditemukan');
+      }
+      resolvedEmail = found;
+    }
+    await dataSource.changePassword(
+      email: resolvedEmail,
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+    );
   }
 
   @override

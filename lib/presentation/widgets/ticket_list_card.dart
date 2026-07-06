@@ -1,13 +1,4 @@
 // lib/presentation/widgets/ticket_list_card.dart
-//
-// Figma 8071:1238 ticket card. Used by:
-//   - dashboard_screen.dart recent activity
-//   - ticket_list_screen.dart main list
-//
-// 2026-06-24: Phase 2 of the theme refactor (ignore/todo-theme.md).
-// Card surface, border, text colors now read `context.semantic` so
-// the card flips with `Theme.of(context).brightness`. Brand colors
-// (status dot + status pill) stay fixed per the design system.
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';

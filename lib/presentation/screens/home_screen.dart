@@ -1,6 +1,5 @@
 // lib/presentation/screens/home_screen.dart
-
-// 2026-06-24: Phase 4 of the theme refactor (ignore/todo-theme.md).
+//
 // Bottom-nav pill + bar Material + scaffold bg now read
 // `context.semantic` so the nav flips with `Theme.of(context).brightness`.
 // Brand colors stay fixed: blue active icon/label/bar, red inbox dot.
@@ -32,8 +31,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: c.surface,
       body: _buildScreen(_currentIndex),
-      // FAB is owned by DashboardScreen per Figma node 8071:3.
-      // Bottom-nav pill matches Figma node 8077:2878:
+      // FAB is owned by DashboardScreen.
+      // Bottom-nav pill:
       //   - 50.5 px tall pill, 15 px radius
       //   - 1 px border (authBorder in light, semantic border in dark)
       //   - 6 px blur shadow (8% black in light, 10% white in dark)
@@ -103,7 +102,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       // Active-tab indicator: 30 × 3.75 px blue pill
                       // that sits ON TOP of the container edge
                       // (top: -3.75) and is centered horizontally
-                      // over the active tab. Figma node 8077:2886.
+                      // over the active tab.
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,

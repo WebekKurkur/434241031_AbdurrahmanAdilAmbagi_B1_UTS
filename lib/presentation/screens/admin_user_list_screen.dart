@@ -1,10 +1,9 @@
 // lib/presentation/screens/admin_user_list_screen.dart
 //
-// Redesign (Figma 8098:1043) — "User Management" screen.
+// "User Management" screen.
 //
 // Layout (top → bottom):
-//   - 52.5h frosted AppHeader with back + "User Management" + theme
-//     toggle
+//   - 52.5h frosted AppHeader with back + "User Management"
 //   - 3 summary chips (Total / Active / Helpdesk), flex-1 each
 //   - Search bar + blue 37.5px "+" add-user button
 //   - 4 filter pills (All / Admin / Helpdesk / User) — selected
@@ -18,7 +17,6 @@
 // Data: `adminUsersProvider` (FutureProvider.autoDispose) from
 // `presentation/providers/auth_provider.dart`.
 //
-// 2026-06-24: Phase 13 of the theme refactor (ignore/todo-theme.md).
 // AppHeader, summary chips, search field, filter pills, user
 // card, role pill, loading + error + empty states all read
 // `context.semantic` so they flip with `Theme.of(context).brightness`.

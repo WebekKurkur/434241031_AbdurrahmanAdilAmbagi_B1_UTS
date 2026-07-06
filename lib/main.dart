@@ -16,8 +16,21 @@ import 'presentation/screens/admin_user_list_screen.dart';
 import 'presentation/screens/admin_user_detail_screen.dart';
 import 'presentation/screens/settings_screen.dart';
 import 'domain/entities/user_entity.dart';
+import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/theme_provider.dart';
 import 'presentation/providers/ticket_provider.dart';
+
+/// Global key on the root [Navigator]. Held as a top-level so
+/// [MyApp] can route the user to `/login` even if the screen-level
+/// [BuildContext] is unmounted (which can happen during the brief
+/// window between `logout()` setting `state = null` and the
+/// Stream-side listener firing). Bug fix 2026-06-24: prior to
+/// this key the redirect was a no-op in some flows because the
+/// `ProfileScreen` context was stale by the time we tried to
+/// call `Navigator.pushNamedAndRemoveUntil` from inside the
+/// Sign-Out dialog.
+final GlobalKey<NavigatorState> rootNavigatorKey =
+    GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +68,54 @@ Future<void> main() async {
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
+  /// Guards against re-entering the Sign-Out → /login redirect.
+  /// Set to `true` the moment a logout is detected and reset
+  /// to `false` once the navigator successfully lands on /login.
+  /// Prevents the Navigator from being navigated multiple times
+  /// in the same logout event when `currentUserProvider`
+  /// transitions null→non-null→null across rebuilds (which would
+  /// otherwise hit `assert(_history.isNotEmpty)` inside the
+  /// Flutter framework — see lib/main.dart top-of-file note).
+  static bool _redirecting = false;
+
+  Future<void> _redirectToLogin() async {
+    if (_redirecting) return;
+    _redirecting = true;
+    try {
+      // 500ms pre-wait + 2x endOfFrame. This is the most
+      // generous pre-wait we've tried — it lets every part
+      // of the sign-out pipeline fully settle (dialog exit
+      // animation, Supabase stream event, Riverpod setState
+      // chain, profile-provider re-resolution) before we
+      // touch the Navigator. Past attempts at 50/100/300ms
+      // either still hit the `assert(_history.isEmpty)`
+      // assertion or left the screen blank with the URL on
+      // `/#/login` — the route was pushed but its overlay
+      // entry never made it past the `push` lifecycle state.
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      await WidgetsBinding.instance.endOfFrame;
+      await WidgetsBinding.instance.endOfFrame;
+
+      final navigator = rootNavigatorKey.currentState;
+      if (navigator == null || !navigator.mounted) return;
+
+      // Use `pushNamedAndRemoveUntil` with `(_) => false` to
+      // clear the stack and land on `/login` in one
+      // operation. With the 500ms pre-wait the Navigator's
+      // `_history` is in a stable, idle state by the time we
+      // call this — the prior assertion (`_history.isEmpty`
+      // mid-rebuild) is gone.
+      navigator.pushNamedAndRemoveUntil(
+        '/login',
+        (route) => false,
+      );
+    } catch (e, st) {
+      debugPrint('[Auth] redirect-to-login failed: $e\n$st');
+    } finally {
+      Future.microtask(() => _redirecting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
@@ -65,9 +126,32 @@ class MyApp extends ConsumerWidget {
     // a stale in-memory list.
     ref.watch(ticketInvalidatorProvider);
 
+    // Bug fix 2026-06-24: route the user to /login automatically
+    // whenever `currentUserProvider` transitions from a non-null
+    // value to `null` (i.e. after the Sign-Out dialog calls
+    // `currentUserProvider.notifier.logout()`). Doing this at the
+    // root via `ref.listen` means:
+    //   1. The redirect happens regardless of whether the screen-
+    //      level `BuildContext` is still mounted by the time the
+    //      auth state actually goes null (which it wasn't, on the
+    //      previous implementation — the dialog's lambda raced
+    //      against the stream listener that nulled the state).
+    //   2. We can't accidentally route on cold start (the initial
+    //      `prev` is also null, so the `prev != null` guard
+    //      short-circuits).
+    // The `rootNavigatorKey` is used because it isn't tied to a
+    // screen-level context and is always valid as long as the
+    // [MaterialApp] is mounted.
+    ref.listen<UserEntity?>(currentUserProvider, (UserEntity? prev, UserEntity? next) {
+      if (prev != null && next == null) {
+        _redirectToLogin();
+      }
+    });
+
     return MaterialApp(
       title: 'HelpDesk E-Ticketing',
       debugShowCheckedModeBanner: false,
+      navigatorKey: rootNavigatorKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,

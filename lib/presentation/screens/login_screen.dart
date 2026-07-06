@@ -1,10 +1,8 @@
 // lib/presentation/screens/login_screen.dart
-//
-// Redesign (2026-06-22) per Figma node 8060:2443:
 // - Single "email + password" form (no role selector — demo
 //   accounts are documented in README and the splash hint).
 // - Page lives inside a rounded "auth surface" card so the design
-//   matches Figma's AuthLayout exactly.
+//   matches the AuthLayout exactly.
 // - Tokens live in AppColors.auth* so future auth screens
 //   (register / forgot-password) stay consistent.
 //
@@ -105,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   /// Pushes the bottom "Need an account?" link to the bottom of
-  /// the available height on tall screens (matches Figma's
+  /// the available height on tall screens (matches the
   /// `flex-[1_0_0]` + `justify-end` on node 8071:1004).
   Widget _buildSpacer() {
     return _RegisterLink(
@@ -249,7 +247,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-/// Single-line input matching the Figma "Field" component:
+/// Single-line input matching the "Field" component:
 /// 41.25 px tall, white fill, 18 px corners, 1 px `#e5e7eb` border,
 /// `_AuthField` was extracted to `widgets/auth_field.dart`
 /// (2026-06-22) so it can be reused by register + forgot-password.

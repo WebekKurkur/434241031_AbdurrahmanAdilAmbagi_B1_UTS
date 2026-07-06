@@ -1,19 +1,4 @@
 // lib/presentation/widgets/auth_scaffold.dart
-//
-// Common scaffold for all three auth screens (login / register
-// / forgot-password). Mirrors the Figma "AuthLayout" frame
-// (node 8071:2, 388 × 842):
-//
-//   - solid surface background (reads as #F5F7FA in light mode,
-//     #0F1115 in dark mode via `context.semantic.surface`)
-//   - on phone (< 480 wide): edge-to-edge, 22.5 px h-padding
-//   - on wide (≥ 480): 480 px max-width, 32 px h-padding
-//   - 52.5 px top padding for breathing room
-//   - bottom padding 30 px
-//   - no rounded card / border / shadow (Option B, 2026-06-22)
-//
-// 2026-06-24: Now reads `context.semantic.surface` so it flips
-// with `Theme.of(context).brightness` (Phase 3 → completed).
 
 import 'package:flutter/material.dart';
 import '../theme/app_semantic.dart';

@@ -1,8 +1,7 @@
 // lib/presentation/screens/create_ticket_screen.dart
 //
-// Create ticket — Figma `8071:435` redesign (2026-06-24).
+// Create ticket screen.
 //
-// 2026-06-24: Phase 10 of the theme refactor (ignore/todo-theme.md).
 // AppHeader, input shells, category dropdown, dropzone, action
 // bar all read `context.semantic` so they flip with
 // `Theme.of(context).brightness`. Brand colors stay fixed:
@@ -94,7 +93,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
   // Pickers
   // -------------------------------------------------------------------------
 
-  static const int _maxBytes = 10 * 1024 * 1024; // 10 MB (Figma spec)
+  static const int _maxBytes = 10 * 1024 * 1024; // 10 MB
 
   Future<void> _pickFromCamera() async {
     if (_picking) return;

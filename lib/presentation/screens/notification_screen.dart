@@ -1,8 +1,7 @@
 // lib/presentation/screens/notification_screen.dart
 //
-// Redesign (2026-06-22) per Figma node 8071:111.
+// Notification screen.
 //
-// 2026-06-24: Phase 7 of the theme refactor (ignore/todo-theme.md).
 // Header, panel, grouped list, cards all read `context.semantic`
 // so they flip with `Theme.of(context).brightness`. Brand colors
 // stay fixed:
@@ -211,7 +210,7 @@ class _PanelTile extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Full-screen NotificationScreen (Figma 8071:111 redesign)
+// Full-screen NotificationScreen
 // ─────────────────────────────────────────────────────────────────
 
 class NotificationScreen extends ConsumerWidget {
@@ -265,7 +264,7 @@ class NotificationScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Header (Figma 8071:1393-1407)
+// Header
 // ─────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
@@ -499,7 +498,7 @@ class _NotificationGroup {
 }
 
 /// Bucket notifications into "Today" + "Earlier". For now we
-/// only have two buckets (matching the Figma spec). Future
+/// only have two buckets. Future
 /// enhancements: Yesterday / This week / Earlier this month.
 List<_NotificationGroup> _groupByDate(List<NotificationEntity> all) {
   final now = DateTime.now();
@@ -773,7 +772,7 @@ String _formatRelative(DateTime when) {
   if (diff.inMinutes < 60) return '${diff.inMinutes}m';
   if (diff.inHours < 24) return '${diff.inHours}h';
   if (diff.inDays < 7) return '${diff.inDays}d';
-  // > 7d: show date. The Figma spec shows "2d" / "5d" up to a
+  // > 7d: show date. Shows "2d" / "5d" up to a
   // week and falls back to a date label after that.
   return '${diff.inDays}d';
 }

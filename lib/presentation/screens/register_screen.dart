@@ -1,31 +1,4 @@
 // lib/presentation/screens/register_screen.dart
-//
-// Redesign (2026-06-22) per Figma node 8071:381.
-//
-// UI: edge-to-edge form on `#f5f7fa` background, with:
-//   - 37.5 px blue logo + "Helpdesk / E-Ticketing System"
-//   - "Create your account" heading (26 px bold)
-//   - Five fields: Full name / Work email / Phone (optional) /
-//     Department (dropdown) / Password
-//   - Terms-of-Service checkbox
-//   - "Create account" blue button (disabled when form invalid)
-//   - "ALREADY HAVE AN ACCOUNT?" divider + "Sign in instead" link
-//
-// Behaviour preserved from the old screen:
-// - `supabase.auth.signUp()` does the work (see auth_repository_impl).
-// - The `handle_new_user` Postgres trigger creates the matching
-//   `public.profiles` row.
-//
-// Adaptations for Figma:
-// - The Figma design has no role selector — public sign-up only.
-//   We hard-code `UserRole.user` (matches Supabase `auto_confirm`
-//   in supabase/config.toml; see `get_all_users_usecase`).
-// - No "Confirm password" field in Figma — drop the validator and
-//   rely on the client-side min-length check.
-// - No "Username" field in Figma — derive it from the email's
-//   local part (`you@company.id` -> `you`) when calling
-//   `register()`. The `profiles.username` column is still
-//   populated that way.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';

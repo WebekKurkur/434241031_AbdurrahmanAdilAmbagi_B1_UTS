@@ -1,9 +1,4 @@
 // lib/presentation/providers/theme_provider.dart
-//
-// 2026-06-22: refactored from a `bool` toggle to a 3-state
-// `ThemeMode` (light / dark / system) to support the
-// "Appearance" pill in the redesigned profile screen, which
-// cycles through all three values.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -1,14 +1,4 @@
 // lib/presentation/screens/ticket_list_screen.dart
-//
-// Redesign (2026-06-22) per Figma node 8071:57.
-//
-// 2026-06-24: Phase 6 of the theme refactor (ignore/todo-theme.md).
-// Sticky frosted header, search field, filter chips, empty state
-// all now read `context.semantic` so they flip with
-// `Theme.of(context).brightness`. Brand colors stay fixed:
-//   - blue #2563EB "+ New" pill + "Load more" link
-//   - active filter chip inverts via `c.textPrimary` (black in
-//     light, near-white in dark)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';

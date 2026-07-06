@@ -1,14 +1,4 @@
 // lib/presentation/screens/profile_screen.dart
-//
-// Redesign (2026-06-22) per Figma node 8071:165.
-//
-// 2026-06-24: Phase 8 of the theme refactor (ignore/todo-theme.md).
-// Header, identity card, settings card, footer, sign-out, theme
-// pill all read `context.semantic` so they flip with
-// `Theme.of(context).brightness`. Brand colors stay fixed:
-//   - purple #8B5CF6 avatar + role pill
-//   - blue #2563EB user-management card
-//   - red #EF4444 sign-out + dialog logout
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -743,11 +733,21 @@ class _SignOutButton extends ConsumerWidget {
                             await ref
                                 .read(currentUserProvider.notifier)
                                 .logout();
+                            // The /login redirect is handled by
+                            // the root-level `ref.listen` in
+                            // `MyApp` (see lib/main.dart). We
+                            // just close the dialog here so the
+                            // user sees the dialog disappear;
+                            // the listener will swap the page
+                            // for `/login` shortly afterwards.
+                            // We deliberately do NOT push from
+                            // this context: doing so races
+                            // against the root listener and
+                            // triggers Flutter's
+                            // `assert(_history.isNotEmpty)`
+                            // inside Navigator.build.
                             if (!dialogCtx.mounted) return;
                             Navigator.pop(dialogCtx);
-                            if (!context.mounted) return;
-                            Navigator.pushNamedAndRemoveUntil(
-                                context, '/login', (_) => false);
                           } catch (e) {
                             if (!dialogCtx.mounted) return;
                             setLocal(() => busy = false);

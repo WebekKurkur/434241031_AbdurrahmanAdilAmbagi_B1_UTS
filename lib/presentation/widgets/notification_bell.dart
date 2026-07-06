@@ -1,10 +1,4 @@
 // lib/presentation/widgets/notification_bell.dart
-//
-// Phase B2: bell icon + unread badge.
-//
-// Drop into any AppBar.actions list (or a Row inside a custom
-// header). The bell subscribes to `unreadCountProvider` and shows
-// a red dot with the count. Tapping opens the notification panel.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -1,6 +1,6 @@
 // lib/presentation/screens/forgot_password_screen.dart
 //
-// Redesign (2026-06-22) per Figma node 8071:327.
+// Forgot password screen.
 // Two states:
 //   1. Form: "Back to sign in" link + heading + email field +
 //      "Send reset link" button.

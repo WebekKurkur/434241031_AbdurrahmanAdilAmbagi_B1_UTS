@@ -1,20 +1,4 @@
 // lib/presentation/providers/paginated_tickets_provider.dart
-//
-// Phase G1 of the SRS v2.0.0 audit (ignore/todo-srs.md).
-//
-// FR §4.1: Lazy loading / pagination for the ticket list.
-//
-// Architecture:
-//   - `PaginatedTicketsNotifier` keeps a small in-memory state
-//     (list of loaded tickets + cursor + hasMore + totalCount)
-//     and exposes `loadFirstPage()` / `loadNextPage()` /
-//     `refresh()` / `setStatusFilter()`.
-//   - `paginatedTicketsProvider` is a `StateNotifierProvider.family`
-//     keyed by the requested tab so each tab keeps its own page
-//     state (the user can switch tabs without losing scroll
-//     position).
-//   - Underneath it goes through the existing repo / data
-//     source, so all RLS / role filtering still applies.
 
 import 'dart:async';
 

@@ -1,13 +1,4 @@
 // lib/presentation/screens/settings_screen.dart
-//
-// Redesign (2026-06-22) per Figma node 8071:273.
-//
-// 2026-06-24: Phase 9 of the theme refactor (ignore/todo-theme.md).
-// AppHeader, 4 section cards, segmented control, toggle, status
-// pill, link text all read `context.semantic` so they flip with
-// `Theme.of(context).brightness`. Brand colors stay fixed:
-//   - blue #2563EB toggle on + link text
-//   - green #10B981 Two-factor "Enabled" pill
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

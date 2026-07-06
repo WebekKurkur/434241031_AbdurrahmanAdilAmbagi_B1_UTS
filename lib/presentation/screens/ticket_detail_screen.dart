@@ -1,28 +1,4 @@
 // lib/presentation/screens/ticket_detail_screen.dart
-//
-// Ticket detail — Figma `8071:543` direct port (2026-06-24).
-//
-// Visual spec is taken **only** from the Figma design context
-// (no redesign-main doc). Layout, sizes, colors, and typography
-// follow the React+Tailwind source node-by-node; behaviour
-// (realtime comments, history, send, manage sheet) is preserved
-// from the legacy implementation.
-//
-// 2026-06-24: Phase 11 of the theme refactor (ignore/todo-theme.md).
-// AppHeader, status row, person cards, attachments card,
-// description card, tracking link, comment bubbles, reply bar,
-// manage/status/assign sheets, history sheet, loading + error
-// states all read `context.semantic` so they flip with
-// `Theme.of(context).brightness`. Brand colors stay fixed:
-//   - purple #8B5CF6 (requester + user comment avatars)
-//   - blue #2563EB (assignee + admin/helpdesk avatars, send
-//     button, history "created" dot, assign sheet check)
-//   - red #EF4444 (category dot, delete icon/text,
-//     delete-confirm button bg)
-//   - amber #F59E0B (tracking link icon, history "status_changed")
-//   - green #43A047 (history "closed" dot)
-//   - status colors (open/assigned/inProgress/closed fg+bg)
-//   - white on avatar text + send button text (sits on colored bg)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';

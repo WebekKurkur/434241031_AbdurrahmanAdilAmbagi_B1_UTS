@@ -1,10 +1,10 @@
 // lib/presentation/screens/admin_user_detail_screen.dart
 //
-// Redesign (Figma 8100:1483) — "User Detail" screen for admins.
+// "User Detail" screen for admins.
 //
 // Layout (top → bottom):
 //   - 52.5h frosted AppHeader with back + "User Detail" + username
-//     subtitle + theme toggle
+//     subtitle
 //   - Hero card: 56px purple avatar + name (17px Bold) + email +
 //     (role pill + dot + active label)
 //   - "ACCOUNT INFO" section + 1 row: department icon + label +
@@ -18,7 +18,6 @@
 // the toggled `isActive` and pops back to the list, which is
 // auto-refreshed by invalidating `adminUsersProvider`.
 //
-// 2026-06-24: Phase 14 of the theme refactor (ignore/todo-theme.md).
 // AppHeader, hero card, account info, actions card, role pill,
 // info row, save button all read `context.semantic` so they flip
 // with `Theme.of(context).brightness`. Brand colors stay fixed:

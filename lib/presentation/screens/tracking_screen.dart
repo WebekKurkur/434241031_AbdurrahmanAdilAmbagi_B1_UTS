@@ -1,25 +1,4 @@
 // lib/presentation/screens/tracking_screen.dart
-//
-// Per-ticket tracking page (Figma 8071:835).
-//
-// Reached from the "View tracking" link on the ticket detail
-// screen. Shows the ticket's current status + a 4-stage progress
-// bar (Created → Assigned → In Progress → Closed) plus a vertical
-// timeline of every `ticket_history` event for the ticket.
-//
-// Backed by:
-//   - `ticketByIdProvider(ticketId)`        — single ticket row
-//   - `ticketHistoryStreamProvider(id)`     — realtime history stream
-//
-// 2026-06-24: Phase 12 of the theme refactor (ignore/todo-theme.md).
-// AppHeader, summary card, progress bar, timeline rows, loading +
-// error states all read `context.semantic` so they flip with
-// `Theme.of(context).brightness`. Brand colors stay fixed:
-//   - blue #2563EB (progress bar fill, "commented" timeline dot)
-//   - purple #8B5CF6 ("assigned" timeline dot)
-//   - amber #F59E0B ("status_changed" timeline dot)
-//   - green #10B981 ("closed" timeline dot + closed status pill)
-//   - status pill fg+bg pairs (color-coded by status)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

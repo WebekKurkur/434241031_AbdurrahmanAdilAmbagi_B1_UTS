@@ -1,20 +1,4 @@
 // lib/presentation/widgets/kpi_card.dart
-//
-// Shared KPI cards — extracted from `dashboard_screen.dart` so
-// other screens (e.g. profile) can render the same visual
-// language without duplicating markup.
-//
-// Two variants:
-//   * `KpiCardHero` — wide horizontal card (icon + label + big
-//                      number, used as the lead metric)
-//   * `KpiCardSmall` — vertical card (icon + big number + label,
-//                      used in 2-up rows)
-//
-// 2026-06-24: Phase 2 of the theme refactor (ignore/todo-theme.md).
-// The shared decoration now reads `context.semantic` so cards flip
-// with `Theme.of(context).brightness`. Tinted icon containers stay
-// as-is (low-alpha overlays of brand colors read OK on both
-// surfaces).
 
 import 'package:flutter/material.dart';
 

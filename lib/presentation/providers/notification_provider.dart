@@ -1,7 +1,4 @@
 // lib/presentation/providers/notification_provider.dart
-//
-// Phase B1: notification data wiring for the bell badge and
-// notifications panel (UI is Phase B2).
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

@@ -1,8 +1,7 @@
 // lib/presentation/screens/dashboard_screen.dart
 //
-// Redesign (2026-06-22) per Figma node 8071:3.
+// Dashboard screen.
 //
-// 2026-06-24: Phase 5 of the theme refactor (ignore/todo-theme.md).
 // Scaffold, header, headings, recent-activity, FAB, _IconChip,
 // debug banner all now read `context.semantic` so they flip with
 // `Theme.of(context).brightness`. Brand colors stay fixed:
@@ -117,8 +116,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
             ),
-            // FAB anchored bottom-right (Figma: top: 707 of an
-            // 842-tall canvas → ~80 px from bottom). 45 px circle,
+            // FAB anchored bottom-right (~80 px from bottom on
+            // an 842-tall canvas). 45 px circle,
             // 12 px shadow at 6 % opacity.
             if (user.role == UserRole.user)
               Positioned(

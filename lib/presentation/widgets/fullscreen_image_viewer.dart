@@ -1,28 +1,4 @@
 // lib/presentation/widgets/fullscreen_image_viewer.dart
-//
-// Fullscreen image viewer used by both create-ticket (tap
-// attachment preview) and ticket-detail (tap attached image in
-// the Attachments card).
-//
-// Black scaffold, InteractiveViewer for pinch-to-zoom + pan,
-// close button (top-right), filename chip (bottom-center).
-// Tapping outside the close button or pressing Android back
-// dismisses.
-//
-// Push via:
-//   Navigator.of(context).push(_fullscreenImageRoute(
-//     imageProvider: MemoryImage(bytes),
-//     fileName: 'photo.jpg',
-//   ));
-//
-// or:
-//   Navigator.of(context).push(_fullscreenImageRoute(
-//     imageProvider: NetworkImage(url),
-//     fileName: 'photo.jpg',
-//   ));
-//
-// 2026-06-24: Created as part of "tap attachment → fullscreen"
-// UX request. Shared between create-ticket and ticket-detail.
 
 import 'package:flutter/material.dart';
 

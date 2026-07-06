@@ -1,20 +1,4 @@
 // lib/presentation/theme/app_semantic.dart
-//
-// 2026-06-24: Phase 1 of the theme refactor
-// (ignore/todo-theme.md).
-//
-// Semantic color tokens used by the redesigned screens. Each
-// token has a light + dark variant. Widgets read the right
-// variant via the `BuildContext.semantic` extension below.
-//
-// `const` widgets that consume these tokens MUST drop `const`
-// because the tokens are runtime-resolved (we need to know
-// `Theme.of(context).brightness` first).
-//
-// Brand colors (purple #8b5cf6, blue #2563eb, green #10b981,
-// amber #f59e0b, red #ef4444) are NOT defined here — they're
-// semantic-by-design and stay fixed in both modes. Reach for
-// them directly (`Color(0xFF2563EB)` etc.) when you need them.
 
 import 'package:flutter/material.dart';
 

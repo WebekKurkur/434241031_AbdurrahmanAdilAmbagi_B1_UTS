@@ -31,11 +31,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Figma shows 8 department options in the dropdown (the SVG
-  // asset has 8 stacked "Option" rectangles at 24 px each).
-  // We keep the list generic — these match common Indonesian IT
-  // organisational units and the seed-data departments in
-  // supabase/migrations/0001_init.sql.
   static const _departments = <String>[
     'IT',
     'Finance',
@@ -75,10 +70,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return null;
   }
 
-  /// Username isn't in the Figma UI but `profiles.username` is a
-  /// NOT NULL column. Derive it from the email's local part. If
-  /// it doesn't pass the regex (e.g. starts with a digit), fall
-  /// back to `user_<hash>`.
   String _deriveUsername(String email) {
     final local = email.split('@').first.toLowerCase();
     if (RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(local) && local.length >= 3) {

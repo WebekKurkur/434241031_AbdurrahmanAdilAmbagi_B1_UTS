@@ -20,7 +20,13 @@ class TrackingScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: context.semantic.surface,
-      body: ticketAsync.when(
+      // 2026-06-25 fix: SafeArea(top: true) so the AppHeader
+      // sits below the status bar instead of under it. Matches
+      // the dashboard + ticket-list pattern.
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: ticketAsync.when(
         loading: () => const _TrackingLoading(),
         error: (e, _) => _TrackingError(
           error: e,
@@ -39,6 +45,7 @@ class TrackingScreen extends ConsumerWidget {
             historyLoading: historyAsync.isLoading,
           );
         },
+      ),
       ),
     );
   }

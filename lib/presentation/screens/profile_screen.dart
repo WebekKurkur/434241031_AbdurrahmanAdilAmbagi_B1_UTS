@@ -368,11 +368,6 @@ class _KpiBlock extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// User Management link (Figma 8098:425) — admin-only blue button
-// that opens `/admin/users`. Brand blue, fixed in both modes.
-// ─────────────────────────────────────────────────────────────────
-
 class _UserManagementLink extends StatelessWidget {
   const _UserManagementLink();
 

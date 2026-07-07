@@ -58,6 +58,23 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // 2026-06-25 fix: make the OS status bar transparent and let
+  // the app paint under it. Without this, Flutter draws a solid
+  // black bar on Android 11+ where the gesture pill / cutout
+  // lives, making the top of every screen feel "mepet" to the
+  // status bar. The per-screen `SafeArea(top: true, bottom: false)`
+  // wrappers handle the actual inset; this only configures
+  // the bar's appearance so it stays transparent.
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Color(0xFFF8FAFF),
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
   runApp(
     const ProviderScope(
       child: MyApp(),
@@ -155,6 +172,21 @@ class MyApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      // 2026-06-25 fix: wrap every route in AnnotatedRegion so
+      // the OS status-bar icons (clock, network, battery…) flip
+      // between dark icons on the light surface and light icons
+      // on the dark surface. Pairs with the
+      // `Colors.transparent` statusBarColor we set in `main()`.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: Color(0xFFF8FAFF),
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: child ?? const SizedBox.shrink(),
+      ),
       initialRoute: '/splash',
       routes: {
         '/splash': (_) => const SplashScreen(),

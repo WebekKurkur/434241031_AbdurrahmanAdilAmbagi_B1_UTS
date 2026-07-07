@@ -89,34 +89,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: c.surface,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(allTicketsProvider);
-          ref.invalidate(userTicketsProvider);
-          ref.invalidate(ticketStatsProvider);
-        },
-        child: Stack(
-          children: [
-            // Main scrollable content. The FAB sits over this and
-            // gets pushed up by the bottom padding (90 px).
-            Positioned.fill(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 110),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(user),
-                    _buildHeading(),
-                    _buildKpiSection(user),
-                    const SizedBox(height: 22.5),
-                    _buildSectionHeader(),
-                    _buildRecentActivity(user),
-                  ],
+      // 2026-06-25 fix: top: true so the header sits below the
+      // status bar on Android 11+; bottom: false because the
+      // home-screen's own Scaffold already takes the
+      // bottom-nav insets into account.
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(allTicketsProvider);
+            ref.invalidate(userTicketsProvider);
+            ref.invalidate(ticketStatsProvider);
+          },
+          child: Stack(
+            children: [
+              // Main scrollable content. The FAB sits over this and
+              // gets pushed up by the bottom padding (90 px).
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 110),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(user),
+                      _buildHeading(),
+                      _buildKpiSection(user),
+                      const SizedBox(height: 22.5),
+                      _buildSectionHeader(),
+                      _buildRecentActivity(user),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // FAB anchored bottom-right (~80 px from bottom on
+              // FAB anchored bottom-right (~80 px from bottom on
             // an 842-tall canvas). 45 px circle,
             // 12 px shadow at 6 % opacity.
             if (user.role == UserRole.user)
@@ -131,6 +138,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

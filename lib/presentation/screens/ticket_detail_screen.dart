@@ -702,7 +702,6 @@ class _PersonCards extends StatelessWidget {
             label: 'Assignee',
             name: assigneeName ?? 'Unassigned',
             avatarColor: assigneeName == null
-                // Unassigned avatar — muted gray, kept fixed per Figma.
                 // (Could use c.textHint, but a flat gray reads more
                 //  "placeholder" on both surfaces.)
                 ? const Color(0xFF94A3B8)
@@ -833,7 +832,6 @@ class _AttachmentsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _SectionLabel(text: 'Attachments'),
-          // Figma places the 7.5px inner top-spacing on the image
           // wrapper (8071:646 `pt-[7.5px]`), not as a free gap
           // between the label and the image — so we apply it via
           // the image's own top padding rather than a SizedBox

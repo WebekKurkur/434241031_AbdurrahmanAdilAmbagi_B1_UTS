@@ -79,7 +79,14 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen> {
 
     return Scaffold(
       backgroundColor: c.surface,
-      body: Stack(
+      // 2026-06-25 fix: SafeArea(top: true) so the sticky
+      // header sits below the status bar instead of being
+      // anchored at y=0. Bottom: false because the home-screen
+      // already handles the bottom-nav inset for this tab.
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Stack(
         children: [
           // Scrollable list (under the sticky header).
           Positioned.fill(
@@ -123,6 +130,7 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -189,10 +197,6 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen> {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────
-// Sticky header (Figma nodes 8071:1196-1236)
-// ─────────────────────────────────────────────────────────────────
 
 class _StickyHeader extends StatelessWidget {
   final TextEditingController searchController;
@@ -287,9 +291,7 @@ class BackdropContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Frosted-glass header per Figma spec. In light mode the
-    // surface is `#f5f7fa` at ~80% alpha; in dark mode it flips
-    // to `#0f1115` at the same alpha via `c.surfaceFrosted`.
+
     final c = context.semantic;
     return Container(
       decoration: BoxDecoration(
@@ -381,9 +383,7 @@ class _FilterChips extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // The negative-margin container from Figma (left: -3.75,
-          // width: 352) gives chips horizontal overflow off the
-          // edge so the scroll feels natural.
+
           Positioned(
             left: -3.75,
             top: 11.25,

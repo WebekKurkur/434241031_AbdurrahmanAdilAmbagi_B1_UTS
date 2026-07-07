@@ -20,56 +20,64 @@ class AuthScaffold extends StatelessWidget {
     final c = context.semantic;
     return Scaffold(
       backgroundColor: c.surface,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isWide = constraints.maxWidth > 480;
-          final double maxFormWidth = isWide ? 480 : double.infinity;
-          final double horizontalPadding = isWide ? 32 : 22.5;
+      // 2026-06-25 fix: wrap the form in SafeArea(top: true,
+      // bottom: false) so the Logo + back-link sit BELOW the
+      // Android status-bar / cutout, not underneath it. Bottom
+      // stays false because the `SingleChildScrollView` already
+      // accounts for the keyboard + system-nav inset.
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isWide = constraints.maxWidth > 480;
+            final double maxFormWidth = isWide ? 480 : double.infinity;
+            final double horizontalPadding = isWide ? 32 : 22.5;
 
-          return SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              child: Center(
-                child: Container(
-                  width: maxFormWidth,
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
-                  decoration: BoxDecoration(
-                    color: c.surface,
-                  ),
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    52.5,
-                    horizontalPadding,
-                    30,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (topBar != null) topBar!,
-                      child,
-                    ],
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Center(
+                  child: Container(
+                    width: maxFormWidth,
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                    ),
+                    // Top padding dropped from 52.5 → 22.5
+                    // because SafeArea now supplies the status-bar
+                    // inset; the 22.5 just gives breathing room
+                    // between the back-link and the Logo.
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      22.5,
+                      horizontalPadding,
+                      30,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (topBar != null) topBar!,
+                        child,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-/// Logo header used by login + register screens (Figma "Logo"
-/// component, 37.5 × 37.5 blue rounded square + wordmark).
-///
-/// 2026-06-24: Wordmark + subtitle now read `context.semantic`
-/// so they flip with dark mode. Brand blue stays fixed.
 class AuthLogo extends StatelessWidget {
   const AuthLogo({super.key});
 

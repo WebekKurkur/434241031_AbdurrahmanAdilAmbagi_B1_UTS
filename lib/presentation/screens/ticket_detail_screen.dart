@@ -308,7 +308,21 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
               Positioned.fill(
                 child: ListView(
                   controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(18.75, 96, 18.75, 100),
+                  // Top padding = SafeArea inset (status bar / poni) +
+                  // _AppHeader height (81 px, hardcoded in that widget).
+                  // The previous value `96` was static and assumed a
+                  // 24 px status bar on a Pixel-class device — on
+                  // devices with taller status bars (iOS-style notch,
+                  // dynamic island, Android 11+ with 44–48 px insets)
+                  // the body content would slide UNDER the floating
+                  // header for ~9–29 px, producing the 'body terpotong
+                  // di belakang header' artefact.
+                  padding: EdgeInsets.fromLTRB(
+                    18.75,
+                    MediaQuery.viewPaddingOf(context).top + 81,
+                    18.75,
+                    100,
+                  ),
                   children: [
                     _StatusRow(
                       status: ticket.status,

@@ -273,8 +273,16 @@ final helpdeskUsersProvider =
 /// Watching this in `main.dart` or in the root widget is enough — it
 /// has no value of its own.
 final ticketInvalidatorProvider = Provider<void>((ref) {
-  // 1. Auth state changes (cold-start session restore, sign-out)
+  // 1. Auth state changes (cold-start session restore, sign-out).
+  // Skip ticket-data invalidation while the user is signed out —
+  // every refetch would be rejected by RLS anyway (no auth.uid),
+  // and the throw path can race with the Navigator swap to
+  // `/login` (causing a blank hitam frame on real Android
+  // devices when the previous screen's `c.surface` remains
+  // attached for one extra frame).
   ref.listen<AsyncValue<dynamic>>(authStateProvider, (_, __) {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return; // ← skip during / right after logout
     ref.invalidate(allTicketsProvider);
     ref.invalidate(userTicketsProvider);
     ref.invalidate(ticketStatsProvider);
@@ -288,6 +296,9 @@ final ticketInvalidatorProvider = Provider<void>((ref) {
   ref.listen<AsyncValue<List<TicketEntity>>>(
     allTicketsStreamProvider,
     (prev, next) {
+      // Skip when no user is signed in (logout window).
+      final user = ref.read(currentUserProvider);
+      if (user == null) return;
       // Only invalidate when the stream actually produced data
       // (not on loading / error states).
       next.whenData((tickets) {

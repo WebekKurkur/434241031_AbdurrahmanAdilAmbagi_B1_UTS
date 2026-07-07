@@ -116,16 +116,27 @@ class MyApp extends ConsumerWidget {
       final navigator = rootNavigatorKey.currentState;
       if (navigator == null || !navigator.mounted) return;
 
-      // Use `pushNamedAndRemoveUntil` with `(_) => false` to
-      // clear the stack and land on `/login` in one
-      // operation. With the 500ms pre-wait the Navigator's
-      // `_history` is in a stable, idle state by the time we
-      // call this — the prior assertion (`_history.isEmpty`
-      // mid-rebuild) is gone.
-      navigator.pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
-      );
+      // Defer the Navigator push to the next post-frame callback.
+      // Without this, the Navigator transition races against the
+      // `ticketInvalidatorProvider` re-fetch chain (which fires
+      // when `currentUserProvider` becomes null and triggers
+      // `ref.invalidate(...)` on every ticket-related provider).
+      // The re-fetch runs while the route push is mid-animation,
+      // leaving the previous screen's surface visible behind
+      // `/login` for ~1 frame. On real Android devices that
+      // manifests as: `/login` flashes briefly → blank hitam
+      // (previous screen's surface, usually `c.surface` in dark
+      // mode = `#121926`) on top.
+      //
+      // `addPostFrameCallback` ensures the Navigator swap happens
+      // AFTER Flutter has settled the current frame, including
+      // any side effects from `ref.watch(ticketInvalidatorProvider)`
+      // in the root `MyApp.build`.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final nav = rootNavigatorKey.currentState;
+        if (nav == null || !nav.mounted) return;
+        nav.pushNamedAndRemoveUntil('/login', (route) => false);
+      });
     } catch (e, st) {
       debugPrint('[Auth] redirect-to-login failed: $e\n$st');
     } finally {

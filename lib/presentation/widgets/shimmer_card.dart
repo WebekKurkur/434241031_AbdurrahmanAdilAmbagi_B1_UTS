@@ -11,7 +11,7 @@ class ShimmerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2F8);
-    final highlightColor = isDark ? const Color(0xFF2D3F55) : Colors.white;
+    final highlightColor = isDark ? AppColors.dividerDark : Colors.white;
 
     return Shimmer.fromColors(
       baseColor: baseColor,
@@ -72,7 +72,7 @@ class ShimmerStatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2F8);
-    final highlightColor = isDark ? const Color(0xFF2D3F55) : Colors.white;
+    final highlightColor = isDark ? AppColors.dividerDark : Colors.white;
 
     return Shimmer.fromColors(
       baseColor: baseColor,

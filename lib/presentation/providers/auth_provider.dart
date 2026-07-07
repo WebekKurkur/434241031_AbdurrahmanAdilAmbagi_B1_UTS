@@ -10,8 +10,12 @@ import '../../data/repositories/auth_repository_impl.dart';
 import '../../core/network/supabase_providers.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/usecases/auth/change_password_usecase.dart';
 import '../../domain/usecases/auth/login_usecase.dart';
 import '../../domain/usecases/auth/logout_usecase.dart';
+import '../../domain/usecases/auth/register_usecase.dart';
+import '../../domain/usecases/auth/get_all_users_usecase.dart';
+import '../../domain/usecases/auth/update_user_usecase.dart';
 
 // Data Sources
 final authDataSourceProvider = Provider((ref) => AuthDataSource());
@@ -33,6 +37,36 @@ final logoutUseCaseProvider = Provider((ref) {
   return LogoutUseCase(repository);
 });
 
+final registerUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return RegisterUseCase(repository);
+});
+
+// 2026-06-25: self-serve password change (replaces the email flow).
+final changePasswordUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return ChangePasswordUseCase(repository);
+});
+
+// Phase E: admin user management
+final getAllUsersUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return GetAllUsersUseCase(repository);
+});
+
+final updateUserUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return UpdateUserUseCase(repository);
+});
+
+/// Phase E: list of all profiles (admin only). Refreshable via
+/// `ref.invalidate(adminUsersProvider)`.
+final adminUsersProvider =
+    FutureProvider.autoDispose<List<UserEntity>>((ref) async {
+  final useCase = ref.watch(getAllUsersUseCaseProvider);
+  return await useCase();
+});
+
 /// Auth state notifier.
 ///
 /// Subscribes once to the Supabase-backed [AuthDataSource.profileStream] in
@@ -45,12 +79,18 @@ final logoutUseCaseProvider = Provider((ref) {
 class AuthNotifier extends StateNotifier<UserEntity?> {
   final LoginUseCase loginUseCase;
   final LogoutUseCase logoutUseCase;
+  final RegisterUseCase registerUseCase;
+  final ChangePasswordUseCase changePasswordUseCase;
+  final UpdateUserUseCase updateUserUseCase;
   final AuthDataSource dataSource;
   StreamSubscription<UserEntity?>? _profileSub;
 
   AuthNotifier({
     required this.loginUseCase,
     required this.logoutUseCase,
+    required this.registerUseCase,
+    required this.changePasswordUseCase,
+    required this.updateUserUseCase,
     required this.dataSource,
     required UserEntity? initialUser,
   }) : super(initialUser) {
@@ -76,6 +116,46 @@ class AuthNotifier extends StateNotifier<UserEntity?> {
     return false;
   }
 
+  /// Create a new account. Returns the freshly created user (or
+  /// `null` if the server rejected the request). On success the
+  /// `profileStream` listener above will pick up the new session
+  /// and update `state` automatically, so we don't write to `state`
+  /// ourselves here.
+  Future<UserEntity?> register(RegisterParams params) async {
+    final user = await registerUseCase(params);
+    return user;
+  }
+
+  /// 2026-06-25: self-serve password change. Replaces the email
+  /// flow — the user types email + old password + new password
+  /// on the forgot-password screen. Throws on failure (wrong
+  /// old password, weak new password, etc.) so the UI can
+  /// surface the message verbatim.
+  Future<void> changePassword(ChangePasswordParams params) async {
+    await changePasswordUseCase(params);
+  }
+
+  /// Phase E: update another user's profile via the
+  /// `admin_update_user` RPC. Returns the updated entity so the
+  /// caller can update local optimistic state.
+  Future<UserEntity> updateUser(UpdateUserParams params) async {
+    final updated = await updateUserUseCase(params);
+    // The currently signed-in admin may have changed their own
+    // department / avatar through this call too. Refresh the
+    // local user entity if so.
+    if (mounted && state?.id == params.targetUserId) {
+      state = updated;
+    }
+    return updated;
+  }
+
+  /// Sign the current user out and clear local state.
+  ///
+  /// Awaits the underlying `supabase.auth.signOut()` call and only
+  /// nulls the state on success. If `signOut` throws (network drop,
+  /// no session, etc.) the exception propagates to the caller so the
+  /// UI can show a snackbar instead of silently routing the user to
+  /// `/login` while the session is still alive on the server.
   Future<void> logout() async {
     await logoutUseCase();
     if (!mounted) return;
@@ -102,6 +182,9 @@ final currentUserProvider =
   return AuthNotifier(
     loginUseCase: ref.watch(loginUseCaseProvider),
     logoutUseCase: ref.watch(logoutUseCaseProvider),
+    registerUseCase: ref.watch(registerUseCaseProvider),
+    changePasswordUseCase: ref.watch(changePasswordUseCaseProvider),
+    updateUserUseCase: ref.watch(updateUserUseCaseProvider),
     dataSource: dataSource,
     initialUser: repository.currentUser,
   );
@@ -110,6 +193,14 @@ final currentUserProvider =
 /// Convenience: is the user currently signed in?
 final isLoggedInProvider = Provider((ref) {
   return ref.watch(currentUserProvider) != null;
+});
+
+/// When the current user's password was last updated. `null`
+/// if no session or the auth row has no `updated_at`. Drives
+/// the "Last updated X days ago" subtitle on the settings
+/// screen's "Change password" row.
+final passwordUpdatedAtProvider = Provider<DateTime?>((ref) {
+  return ref.watch(authDataSourceProvider).passwordUpdatedAt;
 });
 
 /// Async profile lookup. Resolves the current Supabase session and

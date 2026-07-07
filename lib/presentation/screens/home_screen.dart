@@ -1,14 +1,18 @@
 // lib/presentation/screens/home_screen.dart
+//
+// Bottom-nav pill + bar Material + scaffold bg now read
+// `context.semantic` so the nav flips with `Theme.of(context).brightness`.
+// Brand colors stay fixed: blue active icon/label/bar, red inbox dot.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
-import '../../domain/entities/user_entity.dart';
+import '../providers/notification_provider.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'ticket_list_screen.dart';
 import 'profile_screen.dart';
-import 'create_ticket_screen.dart';
+import 'notification_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -22,44 +26,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.semantic;
 
     return Scaffold(
+      backgroundColor: c.surface,
       body: _buildScreen(_currentIndex),
-      floatingActionButton: currentUser?.role == UserRole.user
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const CreateTicketScreen()),
+      // FAB is owned by DashboardScreen.
+      // Bottom-nav pill:
+      //   - 50.5 px tall pill, 15 px radius
+      //   - 1 px border (authBorder in light, semantic border in dark)
+      //   - 6 px blur shadow (8% black in light, 10% white in dark)
+      //   - 4 equal-width tabs, 20 px icon, 10 px label
+      //   - active tab: #2563eb icon + label (w600), 30×3.75
+      //     blue pill above the icon
+      bottomNavigationBar: Material(
+        color: c.surface,
+        elevation: 0,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(15, 7.5, 15, 15),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const double tabCount = 4;
+                const double barWidth = 30;
+                const double barHeight = 3.75;
+                final double tabW = constraints.maxWidth / tabCount;
+                final double barLeft =
+                    tabW * _currentIndex + (tabW - barWidth) / 2;
+                return Container(
+                  height: 50.5,
+                  decoration: BoxDecoration(
+                    color: c.surfaceCard,
+                    border: Border.all(color: c.border),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: c.shadow,
+                        blurRadius: 6,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildNavItem(
+                                  0,
+                                  Icons.dashboard_outlined,
+                                  Icons.dashboard_rounded,
+                                  'Home')),
+                          Expanded(
+                              child: _buildNavItem(
+                                  1,
+                                  Icons.confirmation_number_outlined,
+                                  Icons.confirmation_number_rounded,
+                                  'Tickets')),
+                          Expanded(
+                              child: _buildNavItem(
+                                  2,
+                                  Icons.notifications_outlined,
+                                  Icons.notifications_rounded,
+                                  'Inbox')),
+                          Expanded(
+                              child: _buildNavItem(
+                                  3,
+                                  Icons.person_outline_rounded,
+                                  Icons.person_rounded,
+                                  'Profile')),
+                        ],
+                      ),
+                      // Active-tab indicator: 30 × 3.75 px blue pill
+                      // that sits ON TOP of the container edge
+                      // (top: -3.75) and is centered horizontally
+                      // over the active tab.
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        top: -barHeight,
+                        left: barLeft,
+                        child: Container(
+                          width: barWidth,
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: AppColors.authPrimary,
+                            borderRadius:
+                                BorderRadius.circular(33554400),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
-              backgroundColor: AppColors.primary,
-              child: const Icon(Icons.add_rounded, color: Colors.white),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: Material(
-        color: isDark ? AppColors.cardDark : Colors.white,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.dashboard_outlined,
-                    Icons.dashboard_rounded, 'Dashboard', isDark),
-                _buildNavItem(
-                    1,
-                    Icons.confirmation_number_outlined,
-                    Icons.confirmation_number_rounded,
-                    'Tiket',
-                    isDark),
-                _buildNavItem(2, Icons.person_outline_rounded, Icons.person_rounded,
-                    'Profil', isDark),
-              ],
             ),
           ),
         ),
@@ -70,59 +132,85 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildScreen(int index) {
     switch (index) {
       case 0:
-        return const DashboardScreen();
+        return DashboardScreen(
+          onSwitchToTab: (i) => setState(() => _currentIndex = i),
+        );
       case 1:
         return const TicketListScreen();
       case 2:
+        return const NotificationScreen();
+      case 3:
         return const ProfileScreen();
       default:
-        return const DashboardScreen();
+        return DashboardScreen(
+          onSwitchToTab: (i) => setState(() => _currentIndex = i),
+        );
     }
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label, bool isDark) {
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+    final c = context.semantic;
     final isSelected = _currentIndex == index;
+
+    // The Inbox tab (index 2) shows a small red dot in the
+    // top-right of the bell icon when there are unread
+    // notifications — matches the bell-with-dot pattern from
+    // the user's spec.
+    final unreadAsync =
+        index == 2 ? ref.watch(unreadCountProvider) : null;
+    final unread = unreadAsync?.valueOrNull ?? 0;
+    final showDot = index == 2 && unread > 0;
 
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              size: 22,
-              color: isSelected
-                  ? AppColors.primary
-                  : isDark
-                      ? const Color(0xFF64748B)
-                      : const Color(0xFF94A3B8),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w400,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
+                size: 20,
                 color: isSelected
-                    ? AppColors.primary
-                    : isDark
-                        ? const Color(0xFF64748B)
-                        : const Color(0xFF94A3B8),
+                    ? AppColors.authPrimary
+                    : c.textHint,
               ),
+              if (showDot)
+                Positioned(
+                  // 7×7 red dot, sitting on the top-right corner
+                  // of the 20×20 icon. The `right: -2 / top: -2`
+                  // nudges it just outside the icon bounds so it
+                  // doesn't clip behind the icon stroke.
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 1.875),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight:
+                  isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? AppColors.authPrimary
+                  : c.textHint,
+              height: 1.5,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

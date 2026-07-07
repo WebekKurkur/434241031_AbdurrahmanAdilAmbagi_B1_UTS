@@ -13,14 +13,56 @@ class AppColors {
 
   static const statusOpen = Color(0xFFEF5350);
   static const statusOpenBg = Color(0xFFFFEBEE);
+  // "Assigned" = admin picked a helpdesk, work not yet started.
+  // Indigo/violet to differentiate from the orange "in progress".
+  static const statusAssigned = Color(0xFF6366F1);
+  static const statusAssignedBg = Color(0xFFEEF2FF);
   static const statusInProgress = Color(0xFFFF9800);
   static const statusInProgressBg = Color(0xFFFFF3E0);
-  static const statusDone = Color(0xFF43A047);
-  static const statusDoneBg = Color(0xFFE8F5E9);
+  // "Closed" replaces the old "done" — terminal state, ticket shut.
+  static const statusClosed = Color(0xFF43A047);
+  static const statusClosedBg = Color(0xFFE8F5E9);
+  // Aliases kept so any existing call sites / docs that still
+  // reference the old `statusDone` constants don't break. (Will
+  // be removed in a later cleanup pass once we grep for orphans.)
+  static const statusDone = statusClosed;
+  static const statusDoneBg = statusClosedBg;
 
   static const surface = Color(0xFFF8FAFF);
   static const surfaceDark = Color(0xFF121926);
   static const cardDark = Color(0xFF1E293B);
+
+  // Phase G3: semantic text + divider tokens so screens don't
+  // repeat the same hex literal 60+ times.
+  static const textPrimary = Color(0xFF0F172A);
+  static const textSecondary = Color(0xFF64748B);
+  static const textMuted = Color(0xFF94A3B8);
+  static const dividerLight = Color(0xFFE8EDF5);
+  static const dividerDark = Color(0xFF2D3F55);
+
+  // Dark-mode variants: `surfaceSubtleDark` is the dark equivalent of
+  // `0xFFF1F5FB` — a near-card-blue used for icons / pill bgs / etc.
+  static const surfaceSubtleDark = Color(0xFF334155);
+  static const surfaceSubtle = Color(0xFFF1F5FB);
+
+  // Figma redesign (2026-06-22) tokens for the auth screens.
+  // Login + register + forgot-password share the same palette.
+  // Sourced from the Figma `AuthLayout` style guide.
+  static const authBg = Color(0xFFF5F7FA);          // outer background
+  static const authBorder = Color(0xFFE5E7EB);       // card border
+  static const authShadow = Color(0x1F0F1115);      // 12% black, drop shadow
+  static const authFieldFill = Color(0xFFFFFFFF);   // input background
+  static const authFieldText = Color(0xFF0F1115);   // input text
+  static const authHint = Color(0xFF6B7280);         // placeholder / muted
+  static const authError = Color(0xFFEF4444);       // error banner
+  static const authErrorBg = Color(0xFFFEF2F2);     // error banner bg
+  static const authPrimary = Color(0xFF2563EB);     // primary action
+  static const authPrimaryPressed = Color(0xFF1D4ED8);
+
+  // Profile-screen accent. Purple avatar + role-pill text/bg
+  // (rgba(139,92,246,0.12) is the soft pill background).
+  static const authAvatarBg = Color(0xFF8B5CF6);
+  static const authAvatarBgSoft = Color(0x1F8B5CF6); // 12% purple
 }
 
 class AppTheme {
@@ -136,24 +178,27 @@ class AppTheme {
 Color getStatusColor(TicketStatus status) {
   switch (status) {
     case TicketStatus.open: return AppColors.statusOpen;
+    case TicketStatus.assigned: return AppColors.statusAssigned;
     case TicketStatus.inProgress: return AppColors.statusInProgress;
-    case TicketStatus.done: return AppColors.statusDone;
+    case TicketStatus.closed: return AppColors.statusClosed;
   }
 }
 
 Color getStatusBgColor(TicketStatus status) {
   switch (status) {
     case TicketStatus.open: return AppColors.statusOpenBg;
+    case TicketStatus.assigned: return AppColors.statusAssignedBg;
     case TicketStatus.inProgress: return AppColors.statusInProgressBg;
-    case TicketStatus.done: return AppColors.statusDoneBg;
+    case TicketStatus.closed: return AppColors.statusClosedBg;
   }
 }
 
 String getStatusLabel(TicketStatus status) {
   switch (status) {
     case TicketStatus.open: return 'Open';
+    case TicketStatus.assigned: return 'Assigned';
     case TicketStatus.inProgress: return 'In Progress';
-    case TicketStatus.done: return 'Done';
+    case TicketStatus.closed: return 'Closed';
   }
 }
 

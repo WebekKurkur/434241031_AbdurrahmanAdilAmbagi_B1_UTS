@@ -9,7 +9,10 @@ class LogoutUseCase implements NoParamsUseCase<void> {
   LogoutUseCase(this.repository);
 
   @override
-  Future<void> call() async {
-    repository.logout();
+  Future<void> call() {
+    // `repository.logout()` is `Future<void>` and rethrows on
+    // failure, so we just await it. The `AuthNotifier.logout()`
+    // caller awaits this and surfaces any error to the user.
+    return repository.logout();
   }
 }

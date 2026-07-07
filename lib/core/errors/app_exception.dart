@@ -15,3 +15,11 @@ class AppException implements Exception {
     return '$code: $message';
   }
 }
+
+/// Phase E: thrown by [AuthRepository.login] when the matching
+/// profile has `is_active = false`. The login screen catches
+/// this and shows a friendly "akun dinonaktifkan" message.
+class UserInactiveException extends AppException {
+  const UserInactiveException()
+      : super(message: 'Akun Anda telah dinonaktifkan. Hubungi admin.', code: 'USER_INACTIVE');
+}

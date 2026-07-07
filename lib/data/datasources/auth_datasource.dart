@@ -5,6 +5,7 @@
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/errors/app_exception.dart';
 import '../../domain/entities/user_entity.dart';
 import '../models/user_model.dart';
 
@@ -26,6 +27,18 @@ class AuthDataSource {
     return _userFromAuth(authUser);
   }
 
+  /// When the current user's password was last updated (auth
+  /// row `updated_at`). `null` if no session. Used by the
+  /// settings screen to show a "Last updated X days ago"
+  /// subtitle next to "Change password".
+  DateTime? get passwordUpdatedAt {
+    final u = _client.auth.currentUser;
+    if (u == null) return null;
+    final iso = u.updatedAt;
+    if (iso == null) return null;
+    return DateTime.tryParse(iso);
+  }
+
   /// Async profile lookup for the currently signed-in user.
   /// Returns `null` if the user is not signed in.
   /// On cold start (a valid session is in storage but no profile
@@ -41,13 +54,24 @@ class AuthDataSource {
   /// Sign in with email + password. The `authDataSource` doesn't take
   /// a username — the login screen resolves the username to an email
   /// through the `profiles` table when needed.
+  ///
+  /// Phase E: if the matching `profiles.is_active` is `false`, this
+  /// throws [UserInactiveException] (and signs the user back out).
+  /// The login screen catches it and surfaces a friendly message.
   Future<UserEntity?> login(String email, String password) async {
     final res = await _client.auth.signInWithPassword(
       email: email,
       password: password,
     );
     if (res.user == null) return null;
-    return await _fetchProfile(res.user!.id);
+    final profile = await _fetchProfile(res.user!.id);
+    if (profile != null && !profile.isActive) {
+      // Deactivated user: sign them right back out so the
+      // session doesn't linger server-side.
+      await _client.auth.signOut();
+      throw const UserInactiveException();
+    }
+    return profile;
   }
 
   /// Resolve a username to its email. Used by the login screen so the
@@ -90,6 +114,89 @@ class AuthDataSource {
     await _client.auth.signOut();
   }
 
+  /// Phase E: list all profiles (admin-only via RLS — the
+  /// "profiles read" policy allows any authenticated user to
+  /// read all profiles, but the admin UI is gated by the caller's
+  /// role on the client side and by the admin_update_user RPC on
+  /// the server side).
+  Future<List<UserEntity>> getAllUsers() async {
+    final rows = await _client
+        .from('profiles')
+        .select()
+        .order('name', ascending: true);
+    return rows.map(UserModel.fromRow).toList();
+  }
+
+  /// Phase E: call the `admin_update_user` RPC. Returns the
+  /// updated row.
+  Future<UserEntity> adminUpdateUser({
+    required String targetUserId,
+    UserRole? role,
+    bool? isActive,
+    String? department,
+  }) async {
+    final res = await _client.rpc(
+      'admin_update_user',
+      params: {
+        'p_target': targetUserId,
+        if (role != null) 'p_role': role.name,
+        if (isActive != null) 'p_is_active': isActive,
+        if (department != null) 'p_department': department,
+      },
+    );
+    // Supabase RPC returns a single row as a map when invoked
+    // through `.rpc(name, params)`. The `admin_update_user`
+    // function returns `public.profiles` so we get a single
+    // map back.
+    final row = (res as Map).cast<String, dynamic>();
+    return UserModel.fromRow(row);
+  }
+
+  /// Self-serve password change (per the 2026-06-25 update spec).
+  /// We don't send reset emails — instead the user types their
+  /// email + current password + new password on the
+  /// forgot-password screen. We verify the old password by
+  /// attempting a `signInWithPassword`, then call
+  /// `auth.updateUser({password: newPassword})`. The verify
+  /// sign-in creates a session, so we sign back out at the
+  /// end to keep the `/login` landing explicit.
+  ///
+  /// Throws if:
+  ///   * the verify sign-in fails (wrong old password) \u2014
+  ///     bubbles `AuthException` from gotrue
+  ///   * `updateUser` is rejected (weak new password,
+  ///     network error, etc.) \u2014 bubbles the gotrue
+  ///     exception
+  Future<void> changePassword({
+    required String email,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    // 1. Verify old password. signInWithPassword will throw on
+    //    wrong credentials; we let that bubble.
+    final verify = await _client.auth.signInWithPassword(
+      email: email,
+      password: oldPassword,
+    );
+    if (verify.user == null) {
+      throw const AuthException('Password lama salah');
+    }
+
+    // 2. Update to the new password.
+    await _client.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+
+    // 3. The verify step left a session behind \u2014 sign it back
+    //    out so the user lands on `/login` after the success
+    //    screen, the same end-state as the email flow.
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // If sign-out fails the session will expire on its own.
+    }
+  }
+
   /// Stream the profile (re-fetched on every auth change) so the UI
   /// can react automatically to SIGNED_IN / SIGNED_OUT.
   Stream<UserEntity?> get profileStream => _client.auth.onAuthStateChange
@@ -129,6 +236,7 @@ class AuthDataSource {
         role: _parseRole(j['role'] as String? ?? 'user'),
         avatarUrl: j['avatar_url'] as String?,
         department: j['department'] as String? ?? '',
+        isActive: j['is_active'] as bool? ?? true,
       );
 
   UserRole _parseRole(String s) {

@@ -37,6 +37,97 @@ class TicketDataSource {
     }
   }
 
+  /// Phase G1: paginated read of tickets (FR §4.1).
+  ///
+  /// Returns rows ordered by `created_at DESC`, with an optional
+  /// status filter (so the Open / Assigned / Progress / Closed
+  /// tabs can each fetch their own page without bringing along
+  /// rows that would be filtered client-side).
+  ///
+  /// [from] and [to] are 0-indexed offsets passed straight to
+  /// PostgREST's `Range` header. The caller is expected to use
+  /// `pageSize * page` / `pageSize * (page + 1) - 1`.
+  ///
+  /// [pageSize] defaults to 20.
+  Future<List<TicketModel>> getTicketsPage({
+    required int from,
+    required int to,
+    TicketStatus? statusFilter,
+    int pageSize = 20,
+  }) async {
+    final userId = _client.auth.currentUser?.id ?? 'anon';
+    debugPrint(
+        '[tickets] getTicketsPage(from=$from,to=$to,status=${statusFilter?.name ?? '*'}) as user=$userId');
+    try {
+      // PostgREST 2.7.0: filter methods like `.eq()` return a
+      // `PostgrestFilterBuilder`; `.order()` and `.range()` return
+      // `PostgrestTransformBuilder` (no filter methods). So we
+      // must chain `.select() -> .eq() -> .order() -> .range()`.
+      var q = _client
+          .from('tickets')
+          .select('*, creator:created_by(name), assignee:assigned_to(name)');
+
+      if (statusFilter != null) {
+        q = q.eq('status', _statusToDb(statusFilter));
+      }
+
+      final res = await q
+          .order('created_at', ascending: false)
+          .range(from, to)
+          .timeout(const Duration(seconds: 8));
+
+      final rows = res.cast<Map<String, dynamic>>();
+      debugPrint(
+          '[tickets] getTicketsPage returned ${rows.length} rows (pageSize=$pageSize)');
+      final ids = rows.map((r) => r['id'] as String).toList();
+      // Comments are still fetched in bulk for the page so the
+      // ticket cards show their `commentCount` without an extra
+      // round-trip per card.
+      final comments = await _fetchCommentsForTickets(ids);
+      return rows
+          .map((j) => _toModel(j, comments[j['id']] ?? const []))
+          .toList();
+    } catch (e, st) {
+      debugPrint('[tickets] getTicketsPage FAILED: $e\n$st');
+      rethrow;
+    }
+  }
+
+  /// Phase G1: total ticket count under the current RLS context,
+  /// optionally filtered by status. Used by the list screen to
+  /// show the "X of Y" indicator and decide whether there's a
+  /// next page to fetch.
+  Future<int> countTicketsWithFilter({TicketStatus? statusFilter}) async {
+    var q = _client.from('tickets').count(CountOption.exact);
+    if (statusFilter != null) {
+      q = q.eq('status', _statusToDb(statusFilter));
+    }
+    final res = await q.timeout(const Duration(seconds: 8));
+    debugPrint('[tickets] countTicketsWithFilter(status=${statusFilter?.name ?? "*"})'
+        ' returned $res');
+    return res;
+  }
+
+  /// Translate [TicketStatus] to the underlying DB enum string.
+  /// Note: 'done' is the legacy DB value for what is now
+  /// [TicketStatus.closed] — keep the mapping here so callers
+  /// don't have to know about the historical name.
+  String _statusToDb(TicketStatus s) {
+    switch (s) {
+      case TicketStatus.open:
+        return 'open';
+      case TicketStatus.assigned:
+        return 'assigned';
+      case TicketStatus.inProgress:
+        return 'inProgress';
+      case TicketStatus.closed:
+        // Map new "closed" status onto the legacy DB value so we
+        // don't need a follow-up migration. The model already
+        // accepts both `closed` and `done` on read.
+        return 'closed';
+    }
+  }
+
   /// Raw row count under the current RLS context. Useful for
   /// diagnostics: the UI can show this next to the filtered count
   /// so a user can tell whether an empty list is "no rows in DB"
@@ -205,42 +296,78 @@ class TicketDataSource {
       );
     }
     debugPrint('[tickets] assignTicket id=$ticketUuid to=$userId ($assignedTo)');
+    // Per the 2026-06-25 update spec: assigning to a helpdesk
+    // also flips status to in_progress in the same UPDATE.
+    // The DB trigger on `tickets` (0004_role_based_updates.sql)
+    // is happy with both columns changing because admin can
+    // change both `assigned_to` and `status`.
     await _client
         .from('tickets')
-        .update({'assigned_to': userId})
+        .update({
+          'assigned_to': userId,
+          'status': 'inProgress',
+        })
         .eq('id', ticketUuid)
         .timeout(const Duration(seconds: 8));
   }
 
+  /// Phase I: admin-only hard delete.
+  ///
+  /// Calls the `admin_delete_ticket(uuid)` RPC which:
+  ///   1. Re-checks the caller is an admin (`SECURITY DEFINER`
+  ///      defence in depth alongside the UI gate).
+  ///   2. Deletes the row (cascades to comments / ticket_history
+  ///      / notifications).
+  ///   3. Best-effort removes the attached image from the
+  ///      `ticket-images` bucket.
+  ///
+  /// Throws on:
+  ///   * `42501 insufficient_privilege` (caller is not admin).
+  ///   * `P0002` (ticket not found).
+  ///   * network / timeout.
+  Future<void> deleteTicket(String ticketUuid) async {
+    if (ticketUuid.isEmpty) {
+      throw ArgumentError('deleteTicket: ticketUuid is empty');
+    }
+    debugPrint('[tickets] deleteTicket id=$ticketUuid');
+    await _client.rpc(
+      'admin_delete_ticket',
+      params: {'p_ticket': ticketUuid},
+    ).timeout(const Duration(seconds: 10));
+  }
+
   /// All users with the helpdesk role. Used by the assign sheet so
   /// the user can pick from real profiles, not a hard-coded list.
+  ///
+  /// Wrapped in an 8-second timeout — if the network hangs (or RLS
+  /// is silently rejecting the read), the assign sheet would
+  /// otherwise show its loading spinner forever, which the user
+  /// experiences as "buffering".
   Future<List<Map<String, dynamic>>> getHelpdeskUsers() async {
     final res = await _client
         .from('profiles')
         .select('id, username, name, role, department')
         .eq('role', 'helpdesk')
-        .order('name', ascending: true);
+        .order('name', ascending: true)
+        .timeout(const Duration(seconds: 8));
     return res.cast<Map<String, dynamic>>();
   }
 
-  /// Resolve a public `ticket_code` (e.g. "TKT-001") to the row's
-  /// uuid primary key. The `comments.ticket_id` column is a uuid FK,
-  /// so any code-shaped value must be translated before insert.
-  Future<String?> _ticketUuidFromCode(String idOrCode) =>
-      _resolveTicketUuid(idOrCode);
-
-  Future<void> addComment(
-      String ticketId, String message, String author, UserRole role) async {
+  Future<void> addComment(String ticketId, String message) async {
     final user = _client.auth.currentUser;
     if (user == null) {
       throw const AuthException('You must be signed in to comment');
     }
-    final ticketUuid = await _ticketUuidFromCode(ticketId);
+    final ticketUuid = await _resolveTicketUuid(ticketId);
     if (ticketUuid == null) {
       throw FormatException(
         'addComment: no ticket with code "$ticketId"',
       );
     }
+    // `author_id` is read from `auth.uid()` server-side via the
+    // `handle_new_user` and RLS policies. The comment is rendered
+    // with author name + role via a `profiles` join on the
+    // read path (see `comments_view` in migration `0001_init.sql`).
     await _client.from('comments').insert({
       'ticket_id': ticketUuid,
       'author_id': user.id,
@@ -266,11 +393,50 @@ class TicketDataSource {
         .from('comments')
         .stream(primaryKey: ['id'])
         .asyncMap((_) async {
-          final uuid = await _ticketUuidFromCode(ticketId);
+          final uuid = await _resolveTicketUuid(ticketId);
           if (uuid == null) return <CommentModel>[];
           final m = await _fetchCommentsForTickets([uuid]);
           return m[uuid] ?? const [];
         });
+  }
+
+  // --------------------------------------------------------- history
+
+  /// One-shot read of the per-ticket history log. Returns rows in
+  /// reverse chronological order (newest first). The caller may
+  /// pass either a public `ticket_code` or the row's uuid.
+  ///
+  /// The table is populated by Postgres triggers in
+  /// `supabase/migrations/0003_ticket_history.sql`. We read the
+  /// joined `actor:actor_id(name)` so the UI can render "Budi
+  /// mengubah status menjadi In Progress" without an extra round-trip.
+  Future<List<TicketHistoryModel>> getTicketHistory(String ticketId) async {
+    final uuid = await _resolveTicketUuid(ticketId);
+    if (uuid == null) return const [];
+    final res = await _client
+        .from('ticket_history')
+        .select('*, actor:actor_id(name)')
+        .eq('ticket_id', uuid)
+        .order('created_at', ascending: false)
+        .timeout(const Duration(seconds: 8));
+    return (res as List)
+        .cast<Map<String, dynamic>>()
+        .map(TicketHistoryModel.fromRow)
+        .toList();
+  }
+
+  /// Realtime stream of the per-ticket history log. Same
+  /// resolution rules as `getTicketHistory`.
+  ///
+  /// The underlying `ticket_history` table is in the
+  /// `supabase_realtime` publication (see the migration), so the
+  /// detail screen's "Riwayat" timeline updates live when another
+  /// user changes the status / assigns / comments.
+  Stream<List<TicketHistoryModel>> watchTicketHistory(String ticketId) {
+    return _client
+        .from('ticket_history')
+        .stream(primaryKey: ['id'])
+        .asyncMap((_) => getTicketHistory(ticketId));
   }
 
   // --------------------------------------------------------- mappers
@@ -309,10 +475,17 @@ class TicketDataSource {
     switch (s) {
       case 'open':
         return TicketStatus.open;
+      case 'assigned':
+        return TicketStatus.assigned;
       case 'inProgress':
         return TicketStatus.inProgress;
+      case 'closed':
+        return TicketStatus.closed;
+      // Defensive back-compat: rows that still have the old 'done'
+      // value (e.g. if the migration was run on a populated DB
+      // before our backfill UPDATE) get mapped to 'closed'.
       case 'done':
-        return TicketStatus.done;
+        return TicketStatus.closed;
       default:
         return TicketStatus.open;
     }

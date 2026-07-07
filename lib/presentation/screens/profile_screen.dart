@@ -2,521 +2,86 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../domain/entities/ticket_entity.dart';
+import '../../domain/entities/user_entity.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/ticket_provider.dart';
-import '../../domain/entities/user_entity.dart';
-import '../../domain/entities/ticket_entity.dart';
+import '../theme/app_semantic.dart';
 import '../theme/app_theme.dart';
+import '../widgets/kpi_card.dart';
+import 'notification_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
     final user = ref.watch(currentUserProvider);
-    final allTickets = ref.watch(userTicketsProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (user == null) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.login_rounded, size: 64, color: AppColors.primary),
-              const SizedBox(height: 16),
-              const Text('Please login to continue', style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                child: const Text('Go to Login'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    Color roleColor;
-    IconData roleIcon;
-    switch (user.role) {
-      case UserRole.admin:
-        roleColor = const Color(0xFF7B1FA2);
-        roleIcon = Icons.admin_panel_settings_rounded;
-        break;
-      case UserRole.helpdesk:
-        roleColor = AppColors.primary;
-        roleIcon = Icons.headset_mic_rounded;
-        break;
-      default:
-        roleColor = const Color(0xFF00838F);
-        roleIcon = Icons.person_rounded;
-    }
-
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Stack(
+        backgroundColor: c.surface,
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Header bg
-                Container(
-                  height: 180,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
-                    ),
-                  ),
+                const Icon(
+                  Icons.login_rounded,
+                  size: 64,
+                  color: AppColors.authPrimary,
                 ),
-                // Content
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      20, MediaQuery.of(context).padding.top + 16, 20, 0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Profil',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.settings_outlined,
-                                color: Colors.white),
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      // Avatar
-                      Stack(
-                        children: [
-                          Container(
-                            width: 88,
-                            height: 88,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [
-                                  roleColor.withValues(alpha: 0.7),
-                                  roleColor,
-                                ],
-                              ),
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: roleColor.withValues(alpha: 0.4),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(roleIcon, color: Colors.white, size: 42),
-                          ),
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: AppColors.statusDone,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
-                              child: const Icon(Icons.check,
-                                  color: Colors.white, size: 11),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        user.name,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        user.email,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: roleColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: roleColor.withValues(alpha: 0.3), width: 1),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(roleIcon, size: 14, color: roleColor),
-                            const SizedBox(width: 6),
-                            Text(
-                              getRoleLabel(user.role),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: roleColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 16),
+                Text(
+                  'Please login to continue',
+                  style: TextStyle(fontSize: 16, color: c.textPrimary),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () =>
+                      Navigator.pushReplacementNamed(context, '/login'),
+                  child: const Text('Go to Login'),
                 ),
               ],
             ),
           ),
-
-          // Stats row
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-              child: allTickets.when(
-                data: (tickets) {
-                  final stats = (
-                    total: tickets.length,
-                    open: tickets
-                        .where((t) => t.status == TicketStatus.open)
-                        .length,
-                    progress: tickets
-                        .where((t) => t.status == TicketStatus.inProgress)
-                        .length,
-                    done: tickets
-                        .where((t) => t.status == TicketStatus.done)
-                        .length,
-                  );
-                  return Row(
-                    children: [
-                      _StatItem(
-                        value: stats.total.toString(),
-                        label: 'Total',
-                        isDark: isDark,
-                      ),
-                      _divider(),
-                      _StatItem(
-                        value: stats.open.toString(),
-                        label: 'Open',
-                        color: AppColors.statusOpen,
-                        isDark: isDark,
-                      ),
-                      _divider(),
-                      _StatItem(
-                        value: stats.progress.toString(),
-                        label: 'Progress',
-                        color: AppColors.statusInProgress,
-                        isDark: isDark,
-                      ),
-                      _divider(),
-                      _StatItem(
-                        value: stats.done.toString(),
-                        label: 'Selesai',
-                        color: AppColors.statusDone,
-                        isDark: isDark,
-                      ),
-                    ],
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-
-          // Info section
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionTitle(label: 'Informasi Akun', isDark: isDark),
-                  const SizedBox(height: 8),
-                  _InfoCard(
-                    children: [
-                      _ProfileItem(
-                        icon: Icons.person_outline_rounded,
-                        label: 'Nama Lengkap',
-                        value: user.name,
-                        isDark: isDark,
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _ProfileItem(
-                        icon: Icons.badge_outlined,
-                        label: 'Username',
-                        value: user.username,
-                        isDark: isDark,
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _ProfileItem(
-                        icon: Icons.email_outlined,
-                        label: 'Email',
-                        value: user.email,
-                        isDark: isDark,
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _ProfileItem(
-                        icon: Icons.business_outlined,
-                        label: 'Departemen',
-                        value: user.department,
-                        isDark: isDark,
-                      ),
-                    ],
-                    isDark: isDark,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Settings section
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionTitle(label: 'Pengaturan', isDark: isDark),
-                  const SizedBox(height: 8),
-                  _InfoCard(
-                    children: [
-                      // Dark mode toggle
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(0xFF334155)
-                                    : const Color(0xFFF1F5FB),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                isDark
-                                    ? Icons.dark_mode_rounded
-                                    : Icons.light_mode_rounded,
-                                size: 18,
-                                color: isDark
-                                    ? const Color(0xFFFFC107)
-                                    : const Color(0xFFFF9800),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Tema Gelap',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  Text(
-                                    isDark ? 'Mode Gelap Aktif' : 'Mode Terang Aktif',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? const Color(0xFF94A3B8)
-                                          : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch.adaptive(
-                              value: isDark,
-                              onChanged: (_) =>
-                                  ref.read(themeProvider.notifier).toggle(),
-                              activeColor: AppColors.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _SettingsItem(
-                        icon: Icons.notifications_outlined,
-                        label: 'Notifikasi',
-                        isDark: isDark,
-                        onTap: () {},
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _SettingsItem(
-                        icon: Icons.lock_outline_rounded,
-                        label: 'Ganti Password',
-                        isDark: isDark,
-                        onTap: () {},
-                      ),
-                      Divider(
-                          height: 1,
-                          color: isDark
-                              ? const Color(0xFF2D3F55)
-                              : const Color(0xFFE8EDF5)),
-                      _SettingsItem(
-                        icon: Icons.help_outline_rounded,
-                        label: 'Bantuan',
-                        isDark: isDark,
-                        onTap: () {},
-                      ),
-                    ],
-                    isDark: isDark,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Logout
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      title: const Text('Logout'),
-                      content: const Text(
-                          'Apakah Anda yakin ingin keluar dari aplikasi?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Batal'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            ref.read(currentUserProvider.notifier).logout();
-                            Navigator.pushNamedAndRemoveUntil(
-                                context, '/login', (_) => false);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.statusOpen,
-                          ),
-                          child: const Text('Keluar'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF5350)),
-                label: const Text('Keluar',
-                    style: TextStyle(color: Color(0xFFEF5350))),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFEF5350)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _divider() => Container(
-        width: 1,
-        height: 36,
-        color: const Color(0xFFE8EDF5),
-      );
-}
-
-class _StatItem extends StatelessWidget {
-  final String value;
-  final String label;
-  final Color? color;
-  final bool isDark;
-
-  const _StatItem(
-      {required this.value,
-      required this.label,
-      this.color,
-      required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: isDark
-                  ? const Color(0xFF2D3F55)
-                  : const Color(0xFFE8EDF5)),
         ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: c.surface,
+      body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: color ??
-                    (isDark ? Colors.white : const Color(0xFF0F172A)),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _Header(),
+                    const SizedBox(height: 18.75),
+                    _IdentityCard(user: user),
+                    const SizedBox(height: 15),
+                    _KpiBlock(user: user),
+                    if (user.role == UserRole.admin) ...[
+                      const SizedBox(height: 11.25),
+                      const _UserManagementLink(),
+                    ],
+                    const SizedBox(height: 18.75),
+                    const _SettingsCard(),
+                    const SizedBox(height: 15),
+                    const _SignOutButton(),
+                    const SizedBox(height: 15),
+                    const _Footer(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -526,146 +91,715 @@ class _StatItem extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String label;
-  final bool isDark;
-  const _SectionTitle({required this.label, required this.isDark});
+// ─────────────────────────────────────────────────────────────────
+// Header (8071:1499-1500)
+// ─────────────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-        color: isDark ? Colors.white : const Color(0xFF0F172A),
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  final List<Widget> children;
-  final bool isDark;
-  const _InfoCard({required this.children, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: isDark
-                ? const Color(0xFF2D3F55)
-                : const Color(0xFFE8EDF5)),
-      ),
-      child: Column(children: children),
-    );
-  }
-}
-
-class _ProfileItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final bool isDark;
-
-  const _ProfileItem(
-      {required this.icon,
-      required this.label,
-      required this.value,
-      required this.isDark});
+class _Header extends StatelessWidget {
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF334155)
-                  : const Color(0xFFF1F5FB),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon,
-                size: 16,
-                color: isDark
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF64748B)),
+      padding: const EdgeInsets.fromLTRB(18.75, 22.5, 18.75, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Profile',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: context.semantic.textPrimary,
+            letterSpacing: -0.48,
+            height: 1.25,
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF64748B),
-                  ),
-                ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _SettingsItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isDark;
-  final VoidCallback onTap;
+// ─────────────────────────────────────────────────────────────────
+// Identity card (8071:1502-1515)
+// ─────────────────────────────────────────────────────────────────
 
-  const _SettingsItem(
-      {required this.icon,
-      required this.label,
-      required this.isDark,
-      required this.onTap});
+class _IdentityCard extends ConsumerWidget {
+  final UserEntity user;
+  const _IdentityCard({required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
+    final initials = _initialsFromName(user.name);
+    final roleLabel = getRoleLabel(user.role);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18.75),
+      child: Container(
+        padding: const EdgeInsets.all(19.75),
+        decoration: BoxDecoration(
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: c.shadow,
+              blurRadius: 1,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Avatar (56 px circle, brand purple — fixed)
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: AppColors.authAvatarBg,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    fontSize: 21.28,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 15),
+            // Name / email / role pill
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user.name,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: c.textPrimary,
+                      height: 1.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    user.email,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: c.textSecondary,
+                      height: 1.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 5.625),
+                  Row(
+                    children: [
+                      _RolePill(label: roleLabel),
+                      const SizedBox(width: 7.5),
+                      Flexible(
+                        child: Text(
+                          user.department,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            color: c.textSecondary,
+                            height: 1.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RolePill extends StatelessWidget {
+  final String label;
+  const _RolePill({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
+    // Role pill is brand-purple driven (low-alpha overlay of
+    // the brand color). Stays fixed across modes.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 1.875),
+      decoration: BoxDecoration(
+        color: AppColors.authAvatarBg.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(33554400),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.authAvatarBg,
+          letterSpacing: 0.5,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+String _initialsFromName(String name) {
+  final parts = name.trim().split(RegExp(r'\s+'));
+  if (parts.isEmpty || parts.first.isEmpty) return '?';
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return (parts.first[0] + parts.last[0]).toUpperCase();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// KPI block (shared `KpiCardHero` + `KpiCardSmall` from
+// `lib/presentation/widgets/kpi_card.dart`).
+// ─────────────────────────────────────────────────────────────────
+
+class _KpiBlock extends ConsumerWidget {
+  final UserEntity user;
+  const _KpiBlock({required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statsAsync = ref.watch(ticketStatsProvider);
+
+    return statsAsync.when(
+      data: (stats) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18.75),
+          child: Column(
+            children: [
+              KpiCardHero(
+                label: 'Total tickets',
+                value: stats.total,
+                icon: Icons.confirmation_number_rounded,
+                tint: const Color(0xFF2563EB),
+              ),
+              const SizedBox(height: 11.25),
+              Row(
+                children: [
+                  Expanded(
+                    child: KpiCardSmall(
+                      label: 'Open',
+                      value: stats.open,
+                      icon: Icons.fiber_new_rounded,
+                      tint: const Color(0xFF3B82F6),
+                    ),
+                  ),
+                  const SizedBox(width: 11.25),
+                  Expanded(
+                    child: KpiCardSmall(
+                      label: 'In Progress',
+                      value: stats.inProgress,
+                      icon: Icons.autorenew_rounded,
+                      tint: const Color(0xFFF59E0B),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11.25),
+              Row(
+                children: [
+                  Expanded(
+                    child: KpiCardSmall(
+                      label: 'Assigned to me',
+                      value: _assignedToMe(ref, user),
+                      icon: Icons.assignment_ind_rounded,
+                      tint: const Color(0xFF8B5CF6),
+                    ),
+                  ),
+                  const SizedBox(width: 11.25),
+                  Expanded(
+                    child: KpiCardSmall(
+                      label: 'Closed',
+                      value: stats.closed,
+                      icon: Icons.check_circle_outline_rounded,
+                      tint: const Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 18.75, vertical: 24),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  int _assignedToMe(WidgetRef ref, UserEntity user) {
+    final ticketsAsync = ref.read(userTicketsProvider);
+    return ticketsAsync.maybeWhen(
+      data: (tickets) => tickets
+          .where((t) =>
+              t.assignedTo != null &&
+              t.assignedTo == user.name &&
+              t.status != TicketStatus.closed)
+          .length,
+      orElse: () => 0,
+    );
+  }
+}
+
+class _UserManagementLink extends StatelessWidget {
+  const _UserManagementLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18.75),
+      child: Material(
+        color: const Color(0xFF2563EB),
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: () => Navigator.pushNamed(context, '/admin/users'),
+          child: Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x140F1115),
+                  blurRadius: 6,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Icon container — white-translucent 33.75x33.75
+                Container(
+                  width: 33.75,
+                  height: 33.75,
+                  decoration: BoxDecoration(
+                    color: const Color(0x2EFFFFFF), // ≈ rgba(255,255,255,0.18)
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 11.25),
+                // Title + subtitle
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'User Management',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          height: 1.5,
+                        ),
+                      ),
+                      Opacity(
+                        opacity: 0.75,
+                        child: Text(
+                          'Manage accounts & roles',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Settings list (8071:1528-1580)
+// ─────────────────────────────────────────────────────────────────
+
+class _SettingsCard extends ConsumerWidget {
+  const _SettingsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
+    final themeMode = ref.watch(themeProvider);
+    final themeLabel = _labelFor(themeMode);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18.75),
+      child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5FB),
-          borderRadius: BorderRadius.circular(10),
+          color: c.surfaceCard,
+          border: Border.all(color: c.border),
+          borderRadius: BorderRadius.circular(15),
         ),
-        child: Icon(icon,
-            size: 18,
-            color: isDark
-                ? const Color(0xFF94A3B8)
-                : const Color(0xFF64748B)),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: isDark ? Colors.white : const Color(0xFF0F172A),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            _Row(
+              iconData: Icons.brightness_6_rounded,
+              label: 'Appearance',
+              trailing: _ThemePill(
+                label: themeLabel,
+                onTap: () {
+                  final next = _nextMode(themeMode);
+                  ref.read(themeProvider.notifier).setMode(next);
+                },
+              ),
+            ),
+            const _InsetDivider(),
+            _Row(
+              iconData: Icons.notifications_none_rounded,
+              label: 'Notifications',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationScreen(),
+                ),
+              ),
+            ),
+            const _InsetDivider(),
+            _Row(
+              iconData: Icons.settings_outlined,
+              label: 'Settings',
+              onTap: () => Navigator.pushNamed(context, '/settings'),
+            ),
+            const _InsetDivider(),
+            _Row(
+              iconData: Icons.help_outline_rounded,
+              label: 'Help & support',
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Contact support@helpdesk.app'),
+                    duration: Duration(milliseconds: 1200),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
-      trailing: Icon(Icons.chevron_right_rounded,
-          color: isDark ? const Color(0xFF475569) : const Color(0xFFB0BAC9)),
+    );
+  }
+
+  String _labelFor(ThemeMode m) {
+    switch (m) {
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+        return 'System';
+      case ThemeMode.light:
+        return 'Light';
+    }
+  }
+
+  ThemeMode _nextMode(ThemeMode current) {
+    switch (current) {
+      case ThemeMode.light:
+        return ThemeMode.dark;
+      case ThemeMode.dark:
+        return ThemeMode.system;
+      case ThemeMode.system:
+        return ThemeMode.light;
+    }
+  }
+}
+
+class _Row extends StatelessWidget {
+  final IconData iconData;
+  final String label;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  const _Row({
+    required this.iconData,
+    required this.label,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.semantic;
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11.25),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: c.tintNeutral,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(iconData, size: 16, color: c.textSecondary),
+          ),
+          const SizedBox(width: 11.25),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: c.textPrimary,
+                height: 1.5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (trailing != null)
+            trailing!
+          else
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: c.textSecondary,
+            ),
+        ],
+      ),
+    );
+    if (onTap == null) return row;
+    return InkWell(onTap: onTap, child: row);
+  }
+}
+
+class _InsetDivider extends StatelessWidget {
+  const _InsetDivider();
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 56),
+      child: Container(height: 1, color: context.semantic.border),
+    );
+  }
+}
+
+class _ThemePill extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _ThemePill({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.semantic;
+    return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 30),
+        padding: const EdgeInsets.symmetric(horizontal: 12.25, vertical: 0),
+        decoration: BoxDecoration(
+          border: Border.all(color: c.border),
+          borderRadius: BorderRadius.circular(33554400),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: c.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Sign out (8071:1582-1588) — brand red, fixed in both modes.
+// ─────────────────────────────────────────────────────────────────
+
+class _SignOutButton extends ConsumerWidget {
+  const _SignOutButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.semantic;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18.75),
+      child: SizedBox(
+        height: 41.25,
+        child: OutlinedButton(
+          onPressed: () => _confirmSignOut(context, ref),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: c.border),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            padding: EdgeInsets.zero,
+            foregroundColor: AppColors.authError,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.logout_rounded, size: 16, color: AppColors.authError),
+              SizedBox(width: 7.5),
+              Text(
+                'Sign out',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.authError,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmSignOut(BuildContext context, WidgetRef ref) {
+    bool busy = false;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (sbCtx, setLocal) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text('Logout'),
+              content: const Text(
+                  'Apakah Anda yakin ingin keluar dari aplikasi?'),
+              actions: [
+                TextButton(
+                  onPressed: busy ? null : () => Navigator.pop(dialogCtx),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          setLocal(() => busy = true);
+                          try {
+                            await ref
+                                .read(currentUserProvider.notifier)
+                                .logout();
+                            // The /login redirect is handled by
+                            // the root-level `ref.listen` in
+                            // `MyApp` (see lib/main.dart). We
+                            // just close the dialog here so the
+                            // user sees the dialog disappear;
+                            // the listener will swap the page
+                            // for `/login` shortly afterwards.
+                            // We deliberately do NOT push from
+                            // this context: doing so races
+                            // against the root listener and
+                            // triggers Flutter's
+                            // `assert(_history.isNotEmpty)`
+                            // inside Navigator.build.
+                            if (!dialogCtx.mounted) return;
+                            Navigator.pop(dialogCtx);
+                          } catch (e) {
+                            if (!dialogCtx.mounted) return;
+                            setLocal(() => busy = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal logout: $e'),
+                                backgroundColor: AppColors.statusOpen,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.statusOpen,
+                  ),
+                  child: busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Keluar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Footer
+// ─────────────────────────────────────────────────────────────────
+
+class _Footer extends StatelessWidget {
+  const _Footer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18.75),
+      child: Center(
+        child: Text(
+          'Helpdesk v2.0 · Build 2026.06',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w400,
+            color: context.semantic.textSecondary,
+            height: 1.5,
+          ),
+        ),
+      ),
     );
   }
 }

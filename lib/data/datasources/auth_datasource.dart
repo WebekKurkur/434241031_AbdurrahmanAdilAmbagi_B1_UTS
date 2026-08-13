@@ -55,7 +55,6 @@ class AuthDataSource {
   /// a username — the login screen resolves the username to an email
   /// through the `profiles` table when needed.
   ///
-  /// Phase E: if the matching `profiles.is_active` is `false`, this
   /// throws [UserInactiveException] (and signs the user back out).
   /// The login screen catches it and surfaces a friendly message.
   Future<UserEntity?> login(String email, String password) async {

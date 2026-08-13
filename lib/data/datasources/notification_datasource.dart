@@ -1,12 +1,4 @@
 // lib/data/datasources/notification_datasource.dart
-//
-// Phase B1: Supabase-backed implementation for the
-// `notifications` table.
-//
-// RLS policy: only the recipient (`user_id = auth.uid()`) can
-// read their own notifications. All writes happen via SECURITY
-// DEFINER triggers on `tickets` / `comments`, so the client never
-// inserts directly.
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
